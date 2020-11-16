@@ -1,0 +1,13 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file>icons/add_scan_err.svg</file>
+        <file>icons/download.svg</file>
+        <file>icons/err_back.svg</file>
+        <file>icons/err_forward.svg</file>
+        <file>icons/find.svg</file>
+        <file>icons/logic_analyzer.svg</file>
+        <file>icons/open_file.svg</file>
+        <file>icons/save.svg</file>
+        <file>icons/tact_view.svg</file>
+    </qresource>
+</RCC>
