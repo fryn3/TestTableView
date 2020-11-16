@@ -18,8 +18,8 @@ const std::array<QString, VectorModel::VectorRoleCOUNT> VectorModel::VECTOR_ROLE
 };
 
 VectorModel::VectorModel(int rows, int columns, QObject *parent)
-    : ExcelModel(parent), _columnCount(columns), _rowCount(rows) {
-    checkSubTableCountChanged();
+    : SubtableModel(parent), _columnCount(columns), _rowCount(rows) {
+    checkSubtableCountChanged();
 }
 
 bool VectorModel::setColumnCount(int count) {
@@ -31,13 +31,13 @@ bool VectorModel::setColumnCount(int count) {
     }
     _columnCount = count;
     endInsertColumns();
-    checkSubTableCountChanged();
+    checkSubtableCountChanged();
     return true;
 }
 
 void VectorModel::setRowCount(int count) {
     _rowCount = count;
-    checkSubTableCountChanged();
+    checkSubtableCountChanged();
 }
 
 int VectorModel::totalRowCount() const {
@@ -49,8 +49,8 @@ int VectorModel::totalColumnCount() const {
 }
 
 QHash<int, QByteArray> VectorModel::roleNames() const {
-    ExcelModel::roleNames();
-    const int MIN_KEY = Qt::UserRole + ExcelRoleCOUNT;
+    SubtableModel::roleNames();
+    const int MIN_KEY = Qt::UserRole + SubtableRoleCOUNT;
     for (int i = 0; i < VectorRoleCOUNT; ++i) {
         _rolesId.insert(MIN_KEY + i, VECTOR_ROLE_STR[i].toUtf8());
     }
@@ -79,28 +79,28 @@ QVariant VectorModel::data(const QModelIndex &index, int role) const {
     // default
     role -= Qt::UserRole;
     switch (role) {
-    case ExcelRoleDisplay:
+    case SubtableRoleDisplay:
         return DEFAULT_VALUE.arg(index.row()).arg(index.column());
-    case ExcelRoleAlignment:
+    case SubtableRoleAlignment:
         return (1 << (index.row() % 4)) | (0x20 << index.column() % 3);
-    case ExcelRoleBackground:
+    case SubtableRoleBackground:
         return QColor(0x80, 0, 0xFF, index.row() % 2 ? 255 : 128);
-    case ExcelRoleToolTip:
-        return "ExcelRoleToolTip";
-    case ExcelRoleReadOnly:
+    case SubtableRoleToolTip:
+        return "SubtableRoleToolTip";
+    case SubtableRoleReadOnly:
         return index.column() % 2;
-    case ExcelRoleEnabled:
+    case SubtableRoleEnabled:
         return bool(index.column() % 3);
-    case ExcelRoleSpanH:
-    case ExcelRoleSpanV:
+    case SubtableRoleSpanH:
+    case SubtableRoleSpanV:
         return index.row() == 0 && index.column() == 0 ? 2 : 1;
-    case ExcelRoleValidator:
+    case SubtableRoleValidator:
         return "[0-9a-zA-Z_]*"; // можно сделать QRegExp
-    case ExcelRoleDropdown:
+    case SubtableRoleDropdown:
         return QStringList {"aaBbcc", "abc", "aAacc", "aa bb cc", "AABBCC"};
     default:
         // Обработка VectorRole.
-        role -= ExcelRoleCOUNT;
+        role -= SubtableRoleCOUNT;
         switch (role) {
         case VectorRoleSecondValue:
             return r + c / 1000.;
@@ -152,25 +152,25 @@ QVariant VectorModel::headerData(int section, Qt::Orientation orientation, int r
     switch (orientation) {
     case Qt::Horizontal:
         switch (role) {
-        case ExcelRoleDisplay:
+        case SubtableRoleDisplay:
             return DEFAULT_H_VALUE.arg(section);
-        case ExcelRoleAlignment:
+        case SubtableRoleAlignment:
             return (1 << (section % 4)) | (0x20 << section % 3);
-        case ExcelRoleBackground:
+        case SubtableRoleBackground:
             return QColor(0xDA, 0x70, 0xD6, section % 2 ? 255 : 128);
-        case ExcelRoleToolTip:
-            return "ExcelRoleToolTip Head H";
-        case ExcelRoleWidth:
+        case SubtableRoleToolTip:
+            return "SubtableRoleToolTip Head H";
+        case SubtableRoleWidth:
             return (section % 5 + 1) * 15;
-        case ExcelRoleHeight:
+        case SubtableRoleHeight:
             return -1;
-        case ExcelRoleResized:
+        case SubtableRoleResized:
             return section % 2;
-        case ExcelRoleGroup:
+        case SubtableRoleGroup:
             return section % 10 < 3;
-        case ExcelRoleIndexInGroup:
+        case SubtableRoleIndexInGroup:
             return section % 10 < 3 ? section % 10 : -1;
-        case ExcelRoleDeploy:
+        case SubtableRoleDeploy:
             return section % 10 < 3 ? (section / 10) % 2 ? true : false : false;
         default:
             qDebug() << __PRETTY_FUNCTION__ << "bad role:" << role;
@@ -178,25 +178,25 @@ QVariant VectorModel::headerData(int section, Qt::Orientation orientation, int r
         }
     case Qt::Vertical:
         switch (role) {
-        case ExcelRoleDisplay:
+        case SubtableRoleDisplay:
             return DEFAULT_V_VALUE.arg(section).arg(QChar('a' + section % 3));
-        case ExcelRoleAlignment:
+        case SubtableRoleAlignment:
             return (1 << (section % 4)) | (0x20 << section % 3);
-        case ExcelRoleBackground:
+        case SubtableRoleBackground:
             return QColor(0xB8, 0x4D, 0xFF, section % 2 ? 255 : 128);
-        case ExcelRoleToolTip:
-            return "ExcelRoleToolTip Head V";
-        case ExcelRoleWidth:
+        case SubtableRoleToolTip:
+            return "SubtableRoleToolTip Head V";
+        case SubtableRoleWidth:
             return -1;
-        case ExcelRoleHeight:
+        case SubtableRoleHeight:
             return (section % 5 + 1) * 7;
-        case ExcelRoleResized:
+        case SubtableRoleResized:
             return section % 2;
-        case ExcelRoleGroup:
+        case SubtableRoleGroup:
             return section % 10 < 3;
-        case ExcelRoleIndexInGroup:
+        case SubtableRoleIndexInGroup:
             return section % 10 < 3 ? section % 10 : -1;
-        case ExcelRoleDeploy:
+        case SubtableRoleDeploy:
             return section % 10 < 3 ? (section / 10) % 2 ? true : false : false;
         default:
             qDebug() << __PRETTY_FUNCTION__ << "bad role:" << role;
@@ -231,7 +231,7 @@ bool VectorModel::insertRows(int row, int count, const QModelIndex &parent) {
     }
     _rowCount += count;
     endInsertRows();
-    checkSubTableCountChanged();
+    checkSubtableCountChanged();
     return true;
 }
 
@@ -248,7 +248,7 @@ bool VectorModel::insertColumns(int column, int count, const QModelIndex &parent
     }
     _columnCount += count;
     endRemoveColumns();
-    checkSubTableCountChanged();
+    checkSubtableCountChanged();
     return true;
 }
 
@@ -266,7 +266,7 @@ bool VectorModel::removeRows(int row, int count, const QModelIndex &parent) {
     }
     _rowCount -= count;
     endRemoveRows();
-    checkSubTableCountChanged();
+    checkSubtableCountChanged();
     return true;
 }
 
@@ -287,6 +287,6 @@ bool VectorModel::removeColumns(int column, int count, const QModelIndex &parent
     }
     _columnCount -= count;
     endRemoveColumns();
-    checkSubTableCountChanged();
+    checkSubtableCountChanged();
     return true;
 }

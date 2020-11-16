@@ -1,10 +1,10 @@
 #pragma once
 
-#include "excelmodel.h"
+#include "subtablemodel.h"
 
 #include <QTimer>
 
-class VectorModel : public ExcelModel
+class VectorModel : public SubtableModel
 {
     Q_OBJECT
 

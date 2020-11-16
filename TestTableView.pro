@@ -9,7 +9,7 @@ CONFIG += c++11
 include(../IT_QMLRepository/IT_QMLRepository.pri)
 #include(../VariantMapModel/VariantMapModel.pri)
 #include(../SomeBigTableModel/SomeBigTableModel.pri)
-include(../ExcelModel/ExcelModel.pri)
+include(../SubtableModel/SubtableModel.pri)
 
 SOURCES += \
         main.cpp \
