@@ -1,4 +1,4 @@
-#include "vectormodel.h"
+#include "testmodel.h"
 
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -31,8 +31,11 @@ int main(int argc, char *argv[])
 
 //    SomeBigTableModel model2(2048, 500000);
 //    VectorModel model(2048, 500000);
-    VectorModel model(671091, 2048);
-//    VectorModel model(2048, 8*128*1024/**1024*/);
+    TestModel model(100, 10);
+
+//    VectorModel model(8*128*1024*1024, 2048);
+//    model.setSubtableOrientation(Qt::Vertical);
+//    model.setSubtableSizeMax(1024 * 512);
 //    SomeBigTableModel model(2049, 128*1024*1024);s
 
 //    SomeBigTableModel model(1024*128 * 129, 2048);
