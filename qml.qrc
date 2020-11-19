@@ -10,5 +10,8 @@
         <file>qml/TableView/private/TableViewSelectionModel.qml</file>
         <file>qml/TableView/style/BasicTableViewStyle.qml</file>
         <file>qml/TableView/style/TableViewStyle.qml</file>
+        <file>qml/MultiTableView.qml</file>
+        <file>qml/ColorOverlayButton.qml</file>
+        <file>qml/TestColorBar.qml</file>
     </qresource>
 </RCC>

@@ -19,7 +19,7 @@ MenuBar {
         }
         background: Rectangle {
             color: parent.hovered || parent.highlighted
-                   ? ThemeColors.header_bg : ThemeColors.transparent
+                   ? ThemeColors.header_bg : "transparent"
         }
 
     }
