@@ -4,16 +4,16 @@
 
 #include <QTimer>
 
-class VectorModel : public SubtableModel
+class TestModel : public SubtableModel
 {
     Q_OBJECT
 
 public:
-    static const QString MODULE_NAME;   // VectorM
-    static const QString ITEM_NAME;     // VectorModel
+    static const QString MODULE_NAME;   // TestM
+    static const QString ITEM_NAME;     // TestModel
     static const bool IS_QML_REG;
-    VectorModel(int rows = 5, int columns = 5, QObject *parent = nullptr);
-    virtual ~VectorModel() = default;
+    TestModel(int rows = 5, int columns = 5, QObject *parent = nullptr);
+    virtual ~TestModel() = default;
 
     enum VectorRole {
         // cell

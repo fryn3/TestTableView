@@ -1,28 +1,28 @@
-#include "vectormodel.h"
+#include "testmodel.h"
 
 #include <QColor>
 #include <QQmlEngine>
 
 
 static bool registerMe() {
-    qmlRegisterType<VectorModel>(VectorModel::MODULE_NAME.toUtf8(), 12, 34, VectorModel::ITEM_NAME.toUtf8());
+    qmlRegisterType<TestModel>(TestModel::MODULE_NAME.toUtf8(), 12, 34, TestModel::ITEM_NAME.toUtf8());
     return true;
 }
 
-const QString VectorModel::MODULE_NAME = "VectorM";
-const QString VectorModel::ITEM_NAME = "VectorModel";
-const bool VectorModel::IS_QML_REG = registerMe();
+const QString TestModel::MODULE_NAME = "TestM";
+const QString TestModel::ITEM_NAME = "TestModel";
+const bool TestModel::IS_QML_REG = registerMe();
 
-const std::array<QString, VectorModel::VectorRoleCOUNT> VectorModel::VECTOR_ROLE_STR {
+const std::array<QString, TestModel::VectorRoleCOUNT> TestModel::VECTOR_ROLE_STR {
     "secondValue",
 };
 
-VectorModel::VectorModel(int rows, int columns, QObject *parent)
+TestModel::TestModel(int rows, int columns, QObject *parent)
     : SubtableModel(parent), _columnCount(columns), _rowCount(rows) {
     checkSubtableCountChanged();
 }
 
-bool VectorModel::setColumnCount(int count) {
+bool TestModel::setColumnCount(int count) {
     if (count < 0 || _columnCount == count) { return false; }
     if (_columnCount < count) {
         beginInsertColumns(QModelIndex(), _columnCount, count - 1);
@@ -35,20 +35,20 @@ bool VectorModel::setColumnCount(int count) {
     return true;
 }
 
-void VectorModel::setRowCount(int count) {
+void TestModel::setRowCount(int count) {
     _rowCount = count;
     checkSubtableCountChanged();
 }
 
-int VectorModel::totalRowCount() const {
+int TestModel::totalRowCount() const {
     return _rowCount;
 }
 
-int VectorModel::totalColumnCount() const {
+int TestModel::totalColumnCount() const {
     return _columnCount;
 }
 
-QHash<int, QByteArray> VectorModel::roleNames() const {
+QHash<int, QByteArray> TestModel::roleNames() const {
     SubtableModel::roleNames();
     const int MIN_KEY = Qt::UserRole + SubtableRoleCOUNT;
     for (int i = 0; i < VectorRoleCOUNT; ++i) {
@@ -58,7 +58,7 @@ QHash<int, QByteArray> VectorModel::roleNames() const {
     return _rolesId;
 }
 
-QVariant VectorModel::data(const QModelIndex &index, int role) const {
+QVariant TestModel::data(const QModelIndex &index, int role) const {
 //    qDebug() << __PRETTY_FUNCTION__ << index << role;
     if (!index.isValid()
             || index.row() >= _rowCount
@@ -111,7 +111,7 @@ QVariant VectorModel::data(const QModelIndex &index, int role) const {
     }
 }
 
-bool VectorModel::setData(const QModelIndex &index, const QVariant &value, int role) {
+bool TestModel::setData(const QModelIndex &index, const QVariant &value, int role) {
     qDebug() << __PRETTY_FUNCTION__ << index << role;
     if (!index.isValid()
             || index.row() >= _rowCount
@@ -126,7 +126,7 @@ bool VectorModel::setData(const QModelIndex &index, const QVariant &value, int r
     return true;
 }
 
-QVariant VectorModel::headerData(int section, Qt::Orientation orientation, int role) const {
+QVariant TestModel::headerData(int section, Qt::Orientation orientation, int role) const {
     switch (orientation) {
     case Qt::Horizontal:
         if (section < 0 || section >= _columnCount) { return QVariant(); }
@@ -207,7 +207,7 @@ QVariant VectorModel::headerData(int section, Qt::Orientation orientation, int r
     }
 }
 
-bool VectorModel::setHeaderData(int section, Qt::Orientation orientation, const QVariant &value, int role) {
+bool TestModel::setHeaderData(int section, Qt::Orientation orientation, const QVariant &value, int role) {
     qDebug() << __PRETTY_FUNCTION__ << section << orientation << value << role;
     {
         int orientationIndex = orientation - Qt::Horizontal;
@@ -220,7 +220,7 @@ bool VectorModel::setHeaderData(int section, Qt::Orientation orientation, const 
 }
 
 
-bool VectorModel::insertRows(int row, int count, const QModelIndex &parent) {
+bool TestModel::insertRows(int row, int count, const QModelIndex &parent) {
     if (count < 1 || row < 0 || row > totalRowCount()) {
         return false;
     }
@@ -235,7 +235,7 @@ bool VectorModel::insertRows(int row, int count, const QModelIndex &parent) {
     return true;
 }
 
-bool VectorModel::insertColumns(int column, int count, const QModelIndex &parent) {
+bool TestModel::insertColumns(int column, int count, const QModelIndex &parent) {
     if (count <= 0 || column < 0 || (column + count) > totalColumnCount()) {
         return false;
     }
@@ -252,7 +252,7 @@ bool VectorModel::insertColumns(int column, int count, const QModelIndex &parent
     return true;
 }
 
-bool VectorModel::removeRows(int row, int count, const QModelIndex &parent) {
+bool TestModel::removeRows(int row, int count, const QModelIndex &parent) {
     if (count <= 0 || row < 0 || (row + count) > totalRowCount()) {
         return false;
     }
@@ -270,7 +270,7 @@ bool VectorModel::removeRows(int row, int count, const QModelIndex &parent) {
     return true;
 }
 
-bool VectorModel::removeColumns(int column, int count, const QModelIndex &parent) {
+bool TestModel::removeColumns(int column, int count, const QModelIndex &parent) {
     if (count <= 0 || column < 0 || (column + count) > totalColumnCount()) {
         return false;
     }
