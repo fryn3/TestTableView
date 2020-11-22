@@ -44,8 +44,13 @@ Item {
     }
 
     property Component cellDeleagate: Rectangle {
-        implicitWidth: 100
-        implicitHeight: 50
+        id: cellDelegate
+
+        property bool isEditMode: false
+
+        implicitWidth: table.model.headerData(column, Qt.Horizontal, table.model.getStrRole("width")) || 100
+        implicitHeight: table.model.headerData(row, Qt.Vertical, table.model.getStrRole("height")) || 50
+
         border.color: "#2E2D2D"
         color: selection.highlight ? "#3A3A3A"
                                    : view ? view.model.subtableData(view._subModelIndex,
@@ -53,14 +58,12 @@ Item {
                                                                             view.model.getStrRole("background"))
                                           : "#414141"
         clip: true
-        enabled: !view || view.model.subtableData(view._subModelIndex,
-                                                modelData.row, modelData.column,
-                                                view.model.getStrRole("enabled"))
-        opacity: enabled ? 1.0 : 0.5
 
         TextEdit {
             id: textView
+
             anchors.fill: parent
+            visible: isEditMode
             textFormat: TextEdit.AutoText
             cursorVisible: !readOnly && activeFocus
             readOnly: !view || view.model.subtableData(view._subModelIndex,
@@ -81,6 +84,48 @@ Item {
                                                            modelData.row, modelData.column,
                                                            view.model.getStrRole("alignment")) & 0xE0
                                            : TextEdit.AlignVCenter
+
+            onActiveFocusChanged: if (!activeFocus) isEditMode = false;
+
+            Keys.onEscapePressed: {
+                isEditMode = false;
+                text = view ? view.model.subtableData(view._subModelIndex,
+                                                      modelData.row, modelData.column,
+                                                      view.model.getStrRole("display"))
+                                      : "";
+            }
+            Keys.onPressed: {
+                if (event.key == Qt.Key_Enter || event.key == Qt.Key_Return) {
+                    table.model.subtableSetData(table._subModelIndex, row, column, textView.text, table.model.getStrRole("display"))
+                    isEditMode = false;
+                    event.accepted = true;
+                }
+            }
+        }
+
+        Text {
+            anchors.fill: parent
+            textFormat: TextEdit.RichText
+            text: textView.text
+            visible: !isEditMode
+            wrapMode: Text.Wrap
+            color: "#ffffff"
+            horizontalAlignment: textView.horizontalAlignment
+            verticalAlignment: textView.verticalAlignment
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            enabled: !view || view.model.subtableData(view._subModelIndex,
+                                                      modelData.row, modelData.column,
+                                                      view.model.getStrRole("enabled"))
+
+            onDoubleClicked: {
+                if (!modelData.readOnly) {
+                    isEditMode = true;
+                    textView.forceActiveFocus();
+                }
+            }
         }
 
         Rectangle {
@@ -147,57 +192,81 @@ Item {
     }
 
     Keys.onPressed: {
-        if (table.selectionObj.startColumn < 0 || table.selectionObj.startRow < 0)
+        if (table.selection.startColumn < 0 || table.selection.startRow < 0)
             return;
 
-        table.selectionObj.rowsCount = table.selectionObj.columnsCount = 1;
-
         if (event.key == Qt.Key_Right) {
-            table.selectionObj.startColumn++;
-            if (table.selectionObj.startColumn >= table.model.totalColumnCount())
-                table.selectionObj.startColumn = 0;
+            if (event.modifiers & Qt.ShiftModifier) {
+                table.selection.columnsCount++;
+            } else {
+                table.selection.rowsCount = table.selection.columnsCount = 0;
+                table.selection.startColumn++;
+            }
+
+            if (table.selection.startColumn >= table.columns)
+                table.selection.startColumn = 0;
         }
         if (event.key == Qt.Key_Left) {
-            table.selectionObj.startColumn--;
-            if (table.selectionObj.startColumn < 0)
-                table.selectionObj.startColumn = table.model.totalColumnCount() - 1;
+            if (event.modifiers & Qt.ShiftModifier) {
+                table.selection.columnsCount--;
+            } else {
+                table.selection.rowsCount = table.selection.columnsCount = 0;
+                table.selection.startColumn--;
+            }
+
+            if (table.selection.startColumn < 0)
+                table.selection.startColumn = table.columns - 1;
         }
         if (event.key == Qt.Key_Down) {
-            table.selectionObj.startRow++;
-            if (table.selectionObj.startRow >= table.model.totalRowCount())
-                table.selectionObj.startRow = 0;
+            if (event.modifiers & Qt.ShiftModifier) {
+                table.selection.rowsCount++;
+            } else {
+                table.selection.rowsCount = table.selection.columnsCount = 0;
+                table.selection.startRow++;
+            }
+
+            if (table.selection.startRow >= table.rows)
+                table.selection.startRow = 0;
         }
         if (event.key == Qt.Key_Up) {
-            table.selectionObj.startRow--;
-            if (table.selectionObj.startRow < 0)
-                table.selectionObj.startRow = table.model.totalRowCount() - 1;
+            if (event.modifiers & Qt.ShiftModifier) {
+                table.selection.rowsCount--;
+            } else {
+                table.selection.rowsCount = table.selection.columnsCount = 0;
+                table.selection.startRow--;
+            }
+            if (table.selection.startRow < 0)
+                table.selection.startRow = table.rows - 1;
         }
 
         if (event.key == Qt.Key_Enter || event.key == Qt.Key_Return) {
-            table.selectionObj.startRow++;
-            if (table.selectionObj.startRow >= table.model.totalRowCount()) {
-                table.selectionObj.startRow = 0;
-                table.selectionObj.startColumn++;
-                if (table.selectionObj.startColumn >= table.model.totalColumnCount())
-                    table.selectionObj.startColumn = 0;
+            table.selection.rowsCount = table.selection.columnsCount = 0;
+            table.selection.startRow++;
+            if (table.selection.startRow >= table.rows) {
+                table.selection.startRow = 0;
+                table.selection.startColumn++;
+                if (table.selection.startColumn >= table.columns)
+                    table.selection.startColumn = 0;
             }
         }
         if (event.key == Qt.Key_Tab) {
-            table.selectionObj.startColumn++;
-            if (table.selectionObj.startColumn >= table.model.totalColumnCount()) {
-                table.selectionObj.startColumn = 0;
-                table.selectionObj.startRow++;
-                if (table.selectionObj.startRow >= table.model.totalRowCount())
-                    table.selectionObj.startRow = 0;
+            table.selection.rowsCount = table.selection.columnsCount = 0;
+            table.selection.startColumn++;
+            if (table.selection.startColumn >= table.columns) {
+                table.selection.startColumn = 0;
+                table.selection.startRow++;
+                if (table.selection.startRow >= table.rows)
+                    table.selection.startRow = 0;
             }
         }
         if (event.key == Qt.Key_Backtab) {
-            table.selectionObj.startColumn--;
-            if (table.selectionObj.startColumn < 0) {
-                table.selectionObj.startColumn = table.model.totalColumnCount() - 1;
-                table.selectionObj.startRow--;
-                if (table.selectionObj.startRow < 0)
-                    table.selectionObj.startRow = table.model.totalRowCount() - 1;
+            table.selection.rowsCount = table.selection.columnsCount = 0;
+            table.selection.startColumn--;
+            if (table.selection.startColumn < 0) {
+                table.selection.startColumn = table.columns - 1;
+                table.selection.startRow--;
+                if (table.selection.startRow < 0)
+                    table.selection.startRow = table.rows - 1;
             }
         }
         event.accepted = true;
@@ -207,6 +276,9 @@ Item {
         d.initSubTables(root._tableCount - 1);
     }
 
+    onWidthChanged: d.updateLayout()
+    onHeightChanged: d.updateLayout()
+
     CustomTableView {
         id: table
 
@@ -215,7 +287,6 @@ Item {
 
         anchors.fill: parent
         headerDelegate: root.headerDelegate
-//        interactive: false
 
         bottomMargin: {
             let cHeight = (table.ScrollBar.horizontal && table.ScrollBar.horizontal.visible
@@ -270,7 +341,7 @@ Item {
                 }
             }
             property int _subModelIndex: 0
-            property QtObject selectionObj: null
+            property QtObject selection: null
 
             anchors {
                 top: parent.top
@@ -289,7 +360,7 @@ Item {
 
                 headerDelegate: root.headerDelegate
 
-                selectionObj: table.selectionObj
+                selection: table.selection
                 cellDeleagate: root.cellDeleagate
 
                 contentX: table.contentX + (root.splitOrientation === Qt.Horizontal

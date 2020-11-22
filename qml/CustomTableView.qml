@@ -39,42 +39,73 @@ TableView {
     }
 
     property Component cellDeleagate: Rectangle {
-        implicitWidth: table.model.headerData(column, Qt.Horizontal, table.model.getStrRole("width")) || 100
-        implicitHeight: table.model.headerData(row, Qt.Vertical, table.model.getStrRole("height")) || 50
+        id: cellDelegate
+
+        property bool isEditMode: false
+
+        implicitWidth: textEdit.implicitWidth
+        implicitHeight: textEdit.implicitHeight
 
         border.color: "#2E2D2D"
-        color: selection.highlight ? "#3A3A3A" : modelData.background
+        color: selectionObj.highlight ? "#3A3A3A" : modelData.background
         clip: true
-        enabled: false//modelData.enabled
 
-//        TextEdit {
-//            id: textView
-//            anchors.fill: parent
+        TextEdit {
+            id: textEdit
 
-//            readOnly: modelData.readOnly
-//            cursorVisible: !readOnly && activeFocus
-//            textFormat: TextEdit.AutoText
-//            text: modelData.display
-//            color: "#ffffff"
-//            wrapMode: Text.Wrap
-//            selectByMouse: true
-//            horizontalAlignment: modelData.alignment & 0x0F || TextEdit.AlignHCenter
-//            verticalAlignment: modelData.alignment & 0xE0 || TextEdit.AlignVCenter
-//        }
-        Text{
-            id: textView
             anchors.fill: parent
 
-//            readOnly: modelData.readOnly
-//            cursorVisible: !readOnly && activeFocus
+            visible: isEditMode
+            readOnly: modelData.readOnly
+            cursorVisible: !readOnly && activeFocus
             textFormat: TextEdit.AutoText
             text: modelData.display
             color: "#ffffff"
             wrapMode: Text.Wrap
-//            selectByMouse: true
+            selectByMouse: true
+            horizontalAlignment: modelData.alignment & 0x0F || TextEdit.AlignHCenter
+            verticalAlignment: modelData.alignment & 0xE0 || TextEdit.AlignVCenter
+            enabled: modelData.enabled
+
+            onActiveFocusChanged: if (!activeFocus) isEditMode = false;
+
+            Keys.onEscapePressed: {
+                isEditMode = false;
+                text = modelData.display;
+            }
+            Keys.onPressed: {
+                if (event.key == Qt.Key_Enter || event.key == Qt.Key_Return) {
+                    table.model.subtableSetData(table._subModelIndex, row, column, textEdit.text, table.model.getStrRole("display"))
+                    isEditMode = false;
+                    event.accepted = true;
+                }
+            }
+        }
+
+        Text{
+            anchors.fill: parent
+
+            visible: !isEditMode
+            textFormat: TextEdit.RichText
+            text: textEdit.text
+            color: "#ffffff"
+            wrapMode: Text.Wrap
             horizontalAlignment: modelData.alignment & 0x0F || TextEdit.AlignHCenter
             verticalAlignment: modelData.alignment & 0xE0 || TextEdit.AlignVCenter
         }
+
+        MouseArea {
+            anchors.fill: parent
+            enabled: modelData.enabled
+
+            onDoubleClicked: {
+                if (!modelData.readOnly) {
+                    isEditMode = true;
+                    textEdit.forceActiveFocus();
+                }
+            }
+        }
+
         Rectangle {
             anchors {
                 fill: parent
@@ -110,12 +141,22 @@ TableView {
     property var _savedHeight: ({})
 
     property int _subModelIndex: 0
-    property int _splitOrientation: Qt.Vertical
+    property int _splitOrientation: -1
 
     property real _contentHeight: contentHeight
     property real _contentWidth: contentWidth
 
-    property QtObject selectionObj: QtObject {
+    property bool _hDragActive: false
+    property bool _vDragActive: false
+
+    property int _cursorShape: selectionObj.mouseSelection ? Qt.SizeAllCursor :
+                                              _hDragActive ? Qt.SizeHorCursor :
+                                              _vDragActive ? Qt.SizeVerCursor
+                                                           : Qt.ArrowCursor
+
+    property QtObject selection: QtObject {
+        id: selectionObj
+
         property int startRow: -1
         property int startColumn: -1
         property int rowsCount: 0
@@ -125,6 +166,16 @@ TableView {
         property point _startPos
         property int hoverRow: -1
         property int hoverColumn: -1
+
+        property point _refPoint: Qt.point(0,0)
+        property point _refCell: Qt.point(-1, -1)
+
+        function selectCell(row, column) {
+            startRow = row;
+            startColumn = column;
+            rowsCount = 0;
+            columnsCount = 0;
+        }
     }
 
     property QtObject hHeaderView: HorizontalHeaderView {
@@ -133,39 +184,119 @@ TableView {
         property int _editWidthIndex: -1
         property int _hoverIndex: -1
 
+        parent: table.parent
         anchors {
             left: parent.left
             leftMargin: vHeaderVisible ? vHeaderView.width : 0
         }
-        parent: table.parent
         syncView: table
         interactive: false
-        visible: hHeaderVisible
         z:1000
+        visible: hHeaderVisible
 
-        delegate: MouseArea {
+        delegate: Item {
             id: hDelegate
 
             property int _index: table.model.absoluteColumn(model.index, table._subModelIndex)
 
-            implicitWidth: table.columnWidthProvider(hDelegate._index)
+            implicitWidth: table.columnWidthProvider(_index)
             implicitHeight: 22
-            hoverEnabled: true
-            acceptedButtons: Qt.NoButton
-            cursorShape: Qt.PointingHandCursor
 
-            onContainsMouseChanged: {
-                if (containsMouse)
-                    horizontalHeader._hoverIndex = hDelegate._index;
-                else
-                    horizontalHeader._hoverIndex = -1;
+            MouseArea {
+                id: horizontalMA
+
+                property QtObject _realParent: null
+
+                anchors.fill: parent
+
+                hoverEnabled: true
+                acceptedButtons: horizontalHeader._editWidthIndex > -1 ? Qt.NoButton : Qt.LeftButton
+                cursorShape: table._cursorShape ||  Qt.PointingHandCursor
+
+                onContainsMouseChanged: {
+                    if (containsMouse)
+                        horizontalHeader._hoverIndex = hDelegate._index;
+                    else
+                        horizontalHeader._hoverIndex = -1;
+                }
+
+                onPressed: {
+                    if (horizontalHeader._editWidthIndex > -1)
+                        return;
+                    selectionObj.startRow = 0;
+                    selectionObj.startColumn = hDelegate._index;
+                    selectionObj.rowsCount = table.model.totalRowCount();
+                    selectionObj.columnsCount = 0;
+                    selectionObj._refPoint = Qt.point(0, 0);
+                    selectionObj._refCell = Qt.point(selectionObj.startColumn, selectionObj.startRow);
+                }
+
+                onPositionChanged: {
+                    if (!pressed || horizontalHeader._editWidthIndex > -1)
+                        return;
+
+                    if (!selectionObj.mouseSelection) {
+                        selectionObj.mouseSelection = true;
+                        var fakeParent = fakeParentComponent.createObject(
+                                    hDelegate.parent, {x: hDelegate.x, y: hDelegate.y,
+                                        width: hDelegate.width, height: hDelegate.height});
+                        _realParent = parent;
+                        parent = fakeParent;
+                    }
+
+                    let dx = mouse.x - selectionObj._refPoint.x,
+                    dColumn = selectionObj._refCell.x,
+                    colWidth = table.model.headerData(dColumn, Qt.Horizontal, table.model.getStrRole("width"));
+
+                    if (dx >= 0) {
+                        while (dx > colWidth && dColumn < table.columns - 1) {
+                            dx -= colWidth;
+                            dColumn++;
+                            selectionObj._refPoint.x += colWidth;
+                            colWidth = table.model.headerData(dColumn, Qt.Horizontal, table.model.getStrRole("width"));
+                            selectionObj._refCell.x = dColumn;
+                        }
+                    } else {
+                        while (dx < 0 && dColumn > 0) {
+                            dColumn--;
+                            colWidth = table.model.headerData(dColumn, Qt.Horizontal, table.model.getStrRole("width"));
+                            dx += colWidth;
+                            selectionObj._refPoint.x -= colWidth;
+                            selectionObj._refCell.x = dColumn;
+                        }
+                    }
+                    selectionObj.columnsCount = dColumn - selectionObj.startColumn
+
+
+                    let cursorPos = mapToItem(table, mouse.x, mouse.y, table.width, table.height);
+
+                    if (cursorPos.x < 30) {
+                        table.flick(500, 0);
+                    } else if (cursorPos.x > table.width - 30) {
+                        table.flick(-500, 0);
+                    }
+                }
+
+                onReleased: {
+                    if (selectionObj.mouseSelection) {
+                        selectionObj.mouseSelection = false
+                        let fakeParent = parent;
+                        if (_realParent != null)
+                            parent = _realParent;
+                        else
+                            destroy();
+                        fakeParent.destroy();
+                    }
+                    selectionObj._refPoint = Qt.point(0, 0);
+                    selectionObj._refCell = Qt.point(-1, -1);
+                }
             }
 
             Loader {
                 readonly property int orientation: Qt.Horizontal
                 readonly property int index: hDelegate._index
-                readonly property bool hovered: mouseAreaH.containsMouse
-                readonly property bool pressed: mouseAreaH.pressed
+                readonly property bool hovered: horizontalMA.containsMouse
+                readonly property bool pressed: horizontalMA.pressed
                 readonly property var modelData: model
                 readonly property CustomTableView view: table
 
@@ -174,7 +305,7 @@ TableView {
             }
 
             MouseArea {
-                id: mouseAreaH
+                id: hSplitMA
 
                 anchors {
                     leftMargin: -width / 2
@@ -182,13 +313,14 @@ TableView {
                 }
                 height: parent.height
                 width: table.handleOversize * 2
-                cursorShape: Qt.SizeHorCursor
+                cursorShape:  table._cursorShape || Qt.SizeHorCursor
                 hoverEnabled: true
                 acceptedButtons: Qt.NoButton
                 visible: !table.fixedColumnWidth && hDelegate._index > 0
 
                 onContainsMouseChanged: {
-                    if (containsMouse && horizontalHeader._editWidthIndex > -1 && horizontalHeader._editWidthIndex !== hDelegate._index-1)
+                    if (containsMouse && horizontalHeader._editWidthIndex > -1 &&
+                            horizontalHeader._editWidthIndex !== hDelegate._index-1)
                         return;
                     if (containsMouse)
                         horizontalHeader._editWidthIndex = hDelegate._index-1;
@@ -206,31 +338,34 @@ TableView {
             anchors.fill: parent
             hoverEnabled: true
 
-            cursorShape: _index >=0 && pressed ? Qt.SizeHorCursor : Qt.PointingHandCursor
+            cursorShape: table._cursorShape || (_index >=0 && pressed
+                                                ? Qt.SizeHorCursor : Qt.PointingHandCursor)
 
             onPressed: {
+                table.cancelFlick();
                 if (_index > -1) {
+                    table._hDragActive = true;
                     pressPoint = Qt.point(mouseX, mouseY);
-                    currentWidth = table._savedWidth[_index] || 150;
-                } else {
-                    selectionObj.startRow = 0;
-                    selectionObj.startColumn = horizontalHeader._hoverIndex;
-                    selectionObj.rowsCount = table.model.totalRowCount();
-                    selectionObj.columnsCount = 1;
+                    currentWidth = table.columnWidthProvider(_index);
                 }
             }
 
             onPositionChanged: {
-                currentWidth = table._savedWidth[_index] = Math.max(table.minCellWidth,
-                                                                 currentWidth + (mouse.x - pressPoint.x))
-                pressPoint = Qt.point(mouse.x,mouse.y);
-
-                table.forceLayout()
-                table.layoutUpdated();
+                if (_index > -1) {
+                    currentWidth = table._savedWidth[_index] = Math.max(table.minCellWidth,
+                                            currentWidth + (mouse.x - pressPoint.x))
+                    table.model.setHeaderData(_index, Qt.Horizontal, currentWidth, table.model.getStrRole("width"));
+                    pressPoint = Qt.point(mouse.x,mouse.y);
+                    table.forceLayout()
+                    table.layoutUpdated();
+                }
             }
 
             onReleased: {
-                currentWidth = table._savedWidth[_index] = Math.max(minCellWidth, currentWidth + (mouse.x - pressPoint.x))
+                table._hDragActive = false;
+                currentWidth = table._savedWidth[_index]  = Math.max(table.minCellWidth,
+                                                                     currentWidth + (mouse.x - pressPoint.x))
+                table.model.setHeaderData(_index, Qt.Horizontal, currentWidth, table.model.getStrRole("width"));
                 table.forceLayout()
                 table.layoutUpdated();
                 pressPoint = Qt.point(-1,-1);
@@ -251,32 +386,112 @@ TableView {
         }
         syncView: table
         interactive: false
-        z:1000
+        z:1001
         visible: vHeaderVisible
 
-        delegate: MouseArea {
+        delegate: Item {
             id: vDelegate
 
             property int _index: table.model.absoluteRow(model.index, table._subModelIndex)
 
             implicitWidth: 100
             implicitHeight: table.rowHeightProvider(vDelegate._index)
-            hoverEnabled: true
-            acceptedButtons: Qt.NoButton
-            cursorShape: Qt.PointingHandCursor
 
-            onContainsMouseChanged: {
-                if (containsMouse)
-                    verticalHeader._hoverIndex = vDelegate._index;
-                else
-                    verticalHeader._hoverIndex = -1;
+            MouseArea {
+                id: verticalMA
+
+                property QtObject _realParent: null
+
+                anchors.fill: parent
+
+                hoverEnabled: true
+                acceptedButtons: verticalHeader._editHeightIndex > -1 ? Qt.NoButton : Qt.LeftButton
+                cursorShape: table._cursorShape ||  Qt.PointingHandCursor
+
+                onContainsMouseChanged: {
+                    if (containsMouse)
+                        verticalHeader._hoverIndex = vDelegate._index;
+                    else
+                        verticalHeader._hoverIndex = -1;
+                }
+
+                onPressed: {
+                    if (verticalHeader._editHeightIndex > -1)
+                        return;
+                    selectionObj.startColumn = 0;
+                    selectionObj.startRow = vDelegate._index;
+                    selectionObj.rowsCount = 0;
+                    selectionObj.columnsCount = table.model.totalRowCount();
+                    selectionObj._refPoint = Qt.point(0, 0);
+                    selectionObj._refCell = Qt.point(selectionObj.startColumn, selectionObj.startRow);
+                }
+
+                onPositionChanged: {
+                    if (!pressed || verticalHeader._editHeightIndex > -1)
+                        return;
+
+                    if (!selectionObj.mouseSelection) {
+                        selectionObj.mouseSelection = true;
+                        var fakeParent = fakeParentComponent.createObject(
+                                    vDelegate.parent, {x: vDelegate.x, y: vDelegate.y,
+                                        width: vDelegate.width, height: vDelegate.height});
+                        _realParent = parent;
+                        parent = fakeParent;
+                    }
+
+                    let dy = mouse.y - selectionObj._refPoint.y,
+                    dRow = selectionObj._refCell.y,
+                    rowHeight = table.model.headerData(dRow, Qt.Vertical, table.model.getStrRole("height"));
+
+                    if (dy >= 0) {
+                        while (dy > rowHeight && dRow < table.rows - 1) {
+                            dy -= rowHeight;
+                            dRow++;
+                            selectionObj._refPoint.y += rowHeight;
+                            rowHeight = table.model.headerData(dRow, Qt.Vertical, table.model.getStrRole("height"));
+                            selectionObj._refCell.y = dRow;
+                        }
+                    } else {
+                        while (dy < 0 && dRow > 0) {
+                            dRow--;
+                            rowHeight = table.model.headerData(dRow, Qt.Vertical, table.model.getStrRole("height"));
+                            dy += rowHeight;
+                            selectionObj._refPoint.y -= rowHeight;
+                            selectionObj._refCell.y = dRow;
+                        }
+                    }
+                    selectionObj.rowsCount = dRow - selectionObj.startRow
+
+
+                    let cursorPos = mapToItem(table, mouse.x, mouse.y, table.width, table.height);
+
+                    if (cursorPos.y < 30) {
+                        table.flick(0, 500);
+                    } else if (cursorPos.y > table.height - 30) {
+                        table.flick(0, -500);
+                    }
+                }
+
+                onReleased: {
+                    if (selectionObj.mouseSelection) {
+                        selectionObj.mouseSelection = false
+                        let fakeParent = parent;
+                        if (_realParent != null)
+                            parent = _realParent;
+                        else
+                            destroy();
+                        fakeParent.destroy();
+                    }
+                    selectionObj._refPoint = Qt.point(0, 0);
+                    selectionObj._refCell = Qt.point(-1, -1);
+                }
             }
 
             Loader {
                 readonly property int orientation: Qt.Vertical
                 readonly property int index: vDelegate._index
-                readonly property bool hovered: mouseAreaV.containsMouse
-                readonly property bool pressed: mouseAreaV.pressed
+                readonly property bool hovered: verticalMA.containsMouse
+                readonly property bool pressed: verticalMA.pressed
                 readonly property var modelData: model
                 readonly property CustomTableView view: table
 
@@ -285,7 +500,7 @@ TableView {
             }
 
             MouseArea {
-                id: mouseAreaV
+                id: vSplitMA
 
                 anchors {
                     topMargin: -height / 2
@@ -293,7 +508,7 @@ TableView {
                 }
                 width: parent.width
                 height: table.handleOversize * 2
-                cursorShape: Qt.SizeVerCursor
+                cursorShape:  table._cursorShape || Qt.SizeVerCursor
                 hoverEnabled: true
                 acceptedButtons: Qt.NoButton
                 visible: !table.fixedRowHeight && vDelegate._index > 0
@@ -318,31 +533,34 @@ TableView {
             anchors.fill: parent
             hoverEnabled: true
 
-            cursorShape: _index >=0 && pressed ? Qt.SizeVerCursor : Qt.PointingHandCursor
+            cursorShape: table._cursorShape || (_index >=0 && pressed
+                                                ? Qt.SizeVerCursor : Qt.PointingHandCursor)
 
             onPressed: {
+                table.cancelFlick();
                 if (_index > -1) {
+                    table._vDragActive = true;
                     pressPoint = Qt.point(mouseX, mouseY);
-                    currentHeight = table._savedHeight[_index] || 51;
-                } else {
-                    selectionObj.startRow = verticalHeader._hoverIndex;
-                    selectionObj.startColumn = 0;
-                    selectionObj.rowsCount = 1;
-                    selectionObj.columnsCount = table.model.totalColumnCount();
+                    currentHeight = table.rowHeightProvider(_index);
                 }
             }
 
             onPositionChanged: {
-                currentHeight = table._savedHeight[_index] = Math.max(table.minCellHeight,
-                                                                 currentHeight + (mouse.y - pressPoint.y))
-                pressPoint = Qt.point(mouse.x,mouse.y);
-
-                table.forceLayout();
-                table.layoutUpdated();
+                if (_index > -1) {
+                    currentHeight = table._savedHeight[_index] = Math.max(table.minCellHeight,
+                                                                          currentHeight + (mouse.y - pressPoint.y))
+                    table.model.setHeaderData(_index, Qt.Vertical, currentHeight, table.model.getStrRole("height"));
+                    pressPoint = Qt.point(mouse.x,mouse.y);
+                    table.forceLayout();
+                    table.layoutUpdated();
+                }
             }
 
             onReleased: {
-                currentHeight = table._savedHeight[_index] = Math.max(minCellHeight, currentHeight + (mouse.y - pressPoint.y))
+                table._vDragActive = false;
+                currentHeight = table._savedHeight[_index] = Math.max(table.minCellHeight,
+                                                                      currentHeight + (mouse.y - pressPoint.y))
+                table.model.setHeaderData(_index, Qt.Vertical, currentHeight, table.model.getStrRole("height"));
                 table.forceLayout()
                 table.layoutUpdated();
                 pressPoint = Qt.point(-1,-1);
@@ -350,15 +568,12 @@ TableView {
         }
     }
 
-//    function cellAtDeltaPos(row, column, x, y) {
-//        console.log("### cellAtDeltaPos (row, column, x, y) ", row, column, x, y)
-
-
-//        Array.prototype.forEach.call(visibleChildren[0].visibleChildren, function(child) {
-//            // делаем что-нибудь с объектом child
-////            console.log("      ### child", child, child.x, child.y)
-//        });
-//    }
+    function positionViewAtCell(row, column) {
+        let hPos = column / (table.columns - 1),
+            vPos = row / (table.rows - 1);
+        table.contentX = table.originX + hPos * table.contentWidth - table.width / 2;
+        table.contentY = table.originY + vPos * table.contentHeight - table.height / 2;
+    }
 
     anchors.leftMargin: leftPadding
     anchors.topMargin: topPadding
@@ -372,16 +587,20 @@ TableView {
     reuseItems: true
 
     columnWidthProvider: (column) => {
-                             let _column = column + (table._splitOrientation === Qt.Horizontal
-                                                     ? table._subModelIndex * table.model.subTableSizeMax : 0)
-                             return table._savedWidth[_column] ? table._savedWidth[_column]
-                                                               : -1
-                         }
+        let _column = column + (table._splitOrientation === Qt.Horizontal
+                               ? table._subModelIndex * table.model.subTableSizeMax : 0)
+        return table._savedWidth[_column] ? table._savedWidth[_column]
+                                           : table.model.headerData(_column,
+                                                                 Qt.Horizontal,
+                                                                 table.model.getStrRole("width"))
+    }
     rowHeightProvider: (row) => {
                            let _row = row + (table._splitOrientation === Qt.Vertical
                                              ? table._subModelIndex * table.model.subTableSizeMax : 0)
                            return table._savedHeight[_row] ? table._savedHeight[_row]
-                                                           : -1
+                                                           : table.model.headerData(_row,
+                                                                                    Qt.Vertical,
+                                                                                    table.model.getStrRole("height"))
                        }
     interactive: false
     boundsBehavior: Flickable.StopAtBounds
@@ -422,14 +641,26 @@ TableView {
         MouseArea {
             id: selectionMouseArea
 
-            property point refPoint: Qt.point(0,0)
-            property point refCell: Qt.point(column, row)
+            property QtObject _realParent: null
 
+            z: 1
+            preventStealing: true
             anchors.fill: parent
+            cursorShape: table._cursorShape
+            propagateComposedEvents: true
 
             onContainsMouseChanged: {
                 selectionObj.hoverRow = row;
                 selectionObj.hoverColumn = column;
+            }
+
+            onWheel: {
+                table.cancelFlick();
+                if (wheel.modifiers & Qt.ShiftModifier) {
+                    table.flick(wheel.angleDelta.y * 50, 0);
+                    return;
+                }
+                table.flick(0, wheel.angleDelta.y * 50);
             }
 
             onPositionChanged: {
@@ -437,9 +668,16 @@ TableView {
                     return;
                 if (!selectionObj.mouseSelection) {
                     selectionObj.mouseSelection = true;
+
+                    var fakeParent = fakeParentComponent.createObject(
+                                delegateLoader.parent, {x: delegateLoader.x, y: delegateLoader.y,
+                                                        width: delegateLoader.width, height: delegateLoader.height});
+                    selectionMouseArea._realParent = parent;
+                    selectionMouseArea.parent = fakeParent;
                 }
-                let dx = mouse.x - refPoint.x, dy = mouse.y - refPoint.y,
-                    dRow = refCell.y, dColumn = refCell.x,
+
+                let dx = mouse.x - selectionObj._refPoint.x, dy = mouse.y - selectionObj._refPoint.y,
+                    dRow = selectionObj._refCell.y, dColumn = selectionObj._refCell.x,
                     colWidth = table.model.headerData(dColumn, Qt.Horizontal, table.model.getStrRole("width")),
                     rowHeight = table.model.headerData(dRow, Qt.Vertical, table.model.getStrRole("height"));
 
@@ -447,50 +685,71 @@ TableView {
                     while (dx > colWidth && dColumn < table.columns - 1) {
                         dx -= colWidth;
                         dColumn++;
-                        refPoint.x += colWidth;
+                        selectionObj._refPoint.x += colWidth;
                         colWidth = table.model.headerData(dColumn, Qt.Horizontal, table.model.getStrRole("width"));
-                        refCell.x = dColumn;
+                        selectionObj._refCell.x = dColumn;
                     }
                 } else {
                     while (dx < 0 && dColumn > 0) {
                         dColumn--;
                         colWidth = table.model.headerData(dColumn, Qt.Horizontal, table.model.getStrRole("width"));
                         dx += colWidth;
-                        refPoint.x -= colWidth;
-                        refCell.x = dColumn;
+                        selectionObj._refPoint.x -= colWidth;
+                        selectionObj._refCell.x = dColumn;
                     }
                 }
 
                 if (dy >= 0) {
-                    while (dy > rowHeight && dRow < table.columns - 1) {
+                    while (dy > rowHeight && dRow < table.rows - 1) {
                         dy -= rowHeight;
                         dRow++;
-                        refPoint.y += rowHeight;
+                        selectionObj._refPoint.y += rowHeight;
                         rowHeight = table.model.headerData(dRow, Qt.Vertical, table.model.getStrRole("height"));
-                        refCell.y = dRow;
+                        selectionObj._refCell.y = dRow;
                     }
                 } else {
                     while (dy < 0 && dRow > 0) {
                         dRow--;
                         rowHeight = table.model.headerData(dRow, Qt.Vertical, table.model.getStrRole("height"));
                         dy += rowHeight;
-                        refPoint.y -= rowHeight;
-                        refCell.y = dRow;
+                        selectionObj._refPoint.y -= rowHeight;
+                        selectionObj._refCell.y = dRow;
                     }
                 }
 
                 selectionObj.rowsCount = dRow - selectionObj.startRow
                 selectionObj.columnsCount = dColumn - selectionObj.startColumn
+
+
+                let cursorPos = mapToItem(table, mouse.x, mouse.y, table.width, table.height);
+                if (cursorPos.y < 30) {
+                    table.flick(0, 500);
+                } else if (cursorPos.y > table.height - 30) {
+                    table.flick(0, -500);
+                }
+                if (cursorPos.x < 30) {
+                    table.flick(500, 0);
+                } else if (cursorPos.x > table.width - 30) {
+                    table.flick(-500, 0);
+                }
             }
 
             onReleased: {
-                if (selectionObj.mouseSelection)
+                if (selectionObj.mouseSelection) {
                     selectionObj.mouseSelection = false
-                refPoint = Qt.point(0, 0);
-                refCell = Qt.point(column, row);
+                    let fakeParent = parent;
+                    if (_realParent != null)
+                        parent = _realParent;
+                    else
+                        destroy();
+                    fakeParent.destroy();
+                }
+                selectionObj._refPoint = Qt.point(0, 0);
+                selectionObj._refCell = Qt.point(column, row);
             }
 
             onPressed: {
+                table.cancelFlick();
                 if (mouse.modifiers & Qt.ShiftModifier &&
                         selectionObj.startRow >= 0 && selectionObj.startColumn >= 0) {
 
@@ -508,8 +767,8 @@ TableView {
                     return;
                 }
 
-                refPoint = Qt.point(0, 0);
-                refCell = Qt.point(column, row);
+                selectionObj._refPoint = Qt.point(0, 0);
+                selectionObj._refCell = Qt.point(column, row);
 
                 selectionObj.startRow = row;
                 selectionObj.startColumn = column;
@@ -599,28 +858,46 @@ TableView {
         if (selectionObj.startColumn < 0 || selectionObj.startRow < 0)
             return;
 
-
         if (event.key == Qt.Key_Right) {
-            selectionObj.rowsCount = selectionObj.columnsCount = 0;
-            selectionObj.startColumn++;
+            if (event.modifiers & Qt.ShiftModifier) {
+                selectionObj.columnsCount++;
+            } else {
+                selectionObj.rowsCount = selectionObj.columnsCount = 0;
+                selectionObj.startColumn++;
+            }
+
             if (selectionObj.startColumn >= table.columns)
                 selectionObj.startColumn = 0;
         }
         if (event.key == Qt.Key_Left) {
-            selectionObj.rowsCount = selectionObj.columnsCount = 0;
-            selectionObj.startColumn--;
+            if (event.modifiers & Qt.ShiftModifier) {
+                selectionObj.columnsCount--;
+            } else {
+                selectionObj.rowsCount = selectionObj.columnsCount = 0;
+                selectionObj.startColumn--;
+            }
+
             if (selectionObj.startColumn < 0)
                 selectionObj.startColumn = table.columns - 1;
         }
         if (event.key == Qt.Key_Down) {
-            selectionObj.rowsCount = selectionObj.columnsCount = 0;
-            selectionObj.startRow++;
+            if (event.modifiers & Qt.ShiftModifier) {
+                selectionObj.rowsCount++;
+            } else {
+                selectionObj.rowsCount = selectionObj.columnsCount = 0;
+                selectionObj.startRow++;
+            }
+
             if (selectionObj.startRow >= table.rows)
                 selectionObj.startRow = 0;
         }
         if (event.key == Qt.Key_Up) {
-            selectionObj.rowsCount = selectionObj.columnsCount = 0;
-            selectionObj.startRow--;
+            if (event.modifiers & Qt.ShiftModifier) {
+                selectionObj.rowsCount--;
+            } else {
+                selectionObj.rowsCount = selectionObj.columnsCount = 0;
+                selectionObj.startRow--;
+            }
             if (selectionObj.startRow < 0)
                 selectionObj.startRow = table.rows - 1;
         }
@@ -657,6 +934,8 @@ TableView {
         }
         event.accepted = true;
     }
+
+    Component { id: fakeParentComponent; Item {} }
 
     Loader {
         id: cornerLoader
