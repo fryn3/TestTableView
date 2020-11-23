@@ -47,7 +47,7 @@ TableView {
         implicitHeight: textEdit.implicitHeight
 
         border.color: "#2E2D2D"
-        color: selectionObj.highlight ? "#3A3A3A" : modelData.background
+        color: table.selection.highlight ? "#3A3A3A" : modelData.background
         clip: true
 
         TextEdit {
@@ -132,6 +132,8 @@ TableView {
     property bool vHeaderVisible: true
     property bool hHeaderVisible: true
 
+    property bool scrollByWheel: true
+
     property real leftPadding: vHeaderVisible ? vHeaderView.width : 0
     property real topPadding: hHeaderVisible ? hHeaderView.height : 0
 
@@ -149,13 +151,14 @@ TableView {
     property bool _hDragActive: false
     property bool _vDragActive: false
 
-    property int _cursorShape: selectionObj.mouseSelection ? Qt.SizeAllCursor :
+
+    property int _cursorShape: table.selection.mouseSelection ? Qt.SizeAllCursor :
                                               _hDragActive ? Qt.SizeHorCursor :
                                               _vDragActive ? Qt.SizeVerCursor
                                                            : Qt.ArrowCursor
 
     property QtObject selection: QtObject {
-        id: selectionObj
+//        id: table.selection
 
         property int startRow: -1
         property int startColumn: -1
@@ -223,20 +226,20 @@ TableView {
                 onPressed: {
                     if (horizontalHeader._editWidthIndex > -1)
                         return;
-                    selectionObj.startRow = 0;
-                    selectionObj.startColumn = hDelegate._index;
-                    selectionObj.rowsCount = table.model.totalRowCount();
-                    selectionObj.columnsCount = 0;
-                    selectionObj._refPoint = Qt.point(0, 0);
-                    selectionObj._refCell = Qt.point(selectionObj.startColumn, selectionObj.startRow);
+                    table.selection.startRow = 0;
+                    table.selection.startColumn = hDelegate._index;
+                    table.selection.rowsCount = table.model.totalRowCount();
+                    table.selection.columnsCount = 0;
+                    table.selection._refPoint = Qt.point(0, 0);
+                    table.selection._refCell = Qt.point(table.selection.startColumn, table.selection.startRow);
                 }
 
                 onPositionChanged: {
                     if (!pressed || horizontalHeader._editWidthIndex > -1)
                         return;
 
-                    if (!selectionObj.mouseSelection) {
-                        selectionObj.mouseSelection = true;
+                    if (!table.selection.mouseSelection) {
+                        table.selection.mouseSelection = true;
                         var fakeParent = fakeParentComponent.createObject(
                                     hDelegate.parent, {x: hDelegate.x, y: hDelegate.y,
                                         width: hDelegate.width, height: hDelegate.height});
@@ -244,28 +247,28 @@ TableView {
                         parent = fakeParent;
                     }
 
-                    let dx = mouse.x - selectionObj._refPoint.x,
-                    dColumn = selectionObj._refCell.x,
+                    let dx = mouse.x - table.selection._refPoint.x,
+                    dColumn = table.selection._refCell.x,
                     colWidth = table.model.headerData(dColumn, Qt.Horizontal, table.model.getStrRole("width"));
 
                     if (dx >= 0) {
-                        while (dx > colWidth && dColumn < table.columns - 1) {
+                        while (dx > colWidth && dColumn < table.model.totalColumnCount() - 1) {
                             dx -= colWidth;
                             dColumn++;
-                            selectionObj._refPoint.x += colWidth;
+                            table.selection._refPoint.x += colWidth;
                             colWidth = table.model.headerData(dColumn, Qt.Horizontal, table.model.getStrRole("width"));
-                            selectionObj._refCell.x = dColumn;
+                            table.selection._refCell.x = dColumn;
                         }
                     } else {
                         while (dx < 0 && dColumn > 0) {
                             dColumn--;
                             colWidth = table.model.headerData(dColumn, Qt.Horizontal, table.model.getStrRole("width"));
                             dx += colWidth;
-                            selectionObj._refPoint.x -= colWidth;
-                            selectionObj._refCell.x = dColumn;
+                            table.selection._refPoint.x -= colWidth;
+                            table.selection._refCell.x = dColumn;
                         }
                     }
-                    selectionObj.columnsCount = dColumn - selectionObj.startColumn
+                    table.selection.columnsCount = dColumn - table.selection.startColumn
 
 
                     let cursorPos = mapToItem(table, mouse.x, mouse.y, table.width, table.height);
@@ -278,8 +281,8 @@ TableView {
                 }
 
                 onReleased: {
-                    if (selectionObj.mouseSelection) {
-                        selectionObj.mouseSelection = false
+                    if (table.selection.mouseSelection) {
+                        table.selection.mouseSelection = false
                         let fakeParent = parent;
                         if (_realParent != null)
                             parent = _realParent;
@@ -287,8 +290,8 @@ TableView {
                             destroy();
                         fakeParent.destroy();
                     }
-                    selectionObj._refPoint = Qt.point(0, 0);
-                    selectionObj._refCell = Qt.point(-1, -1);
+                    table.selection._refPoint = Qt.point(0, 0);
+                    table.selection._refCell = Qt.point(-1, -1);
                 }
             }
 
@@ -395,7 +398,7 @@ TableView {
             property int _index: table.model.absoluteRow(model.index, table._subModelIndex)
 
             implicitWidth: 100
-            implicitHeight: table.rowHeightProvider(vDelegate._index)
+            implicitHeight: table.rowHeightProvider(vDelegate._index) || 50
 
             MouseArea {
                 id: verticalMA
@@ -418,20 +421,20 @@ TableView {
                 onPressed: {
                     if (verticalHeader._editHeightIndex > -1)
                         return;
-                    selectionObj.startColumn = 0;
-                    selectionObj.startRow = vDelegate._index;
-                    selectionObj.rowsCount = 0;
-                    selectionObj.columnsCount = table.model.totalRowCount();
-                    selectionObj._refPoint = Qt.point(0, 0);
-                    selectionObj._refCell = Qt.point(selectionObj.startColumn, selectionObj.startRow);
+                    table.selection.startColumn = 0;
+                    table.selection.startRow = vDelegate._index;
+                    table.selection.rowsCount = 0;
+                    table.selection.columnsCount = table.model.totalRowCount();
+                    table.selection._refPoint = Qt.point(0, 0);
+                    table.selection._refCell = Qt.point(table.selection.startColumn, table.selection.startRow);
                 }
 
                 onPositionChanged: {
                     if (!pressed || verticalHeader._editHeightIndex > -1)
                         return;
 
-                    if (!selectionObj.mouseSelection) {
-                        selectionObj.mouseSelection = true;
+                    if (!table.selection.mouseSelection) {
+                        table.selection.mouseSelection = true;
                         var fakeParent = fakeParentComponent.createObject(
                                     vDelegate.parent, {x: vDelegate.x, y: vDelegate.y,
                                         width: vDelegate.width, height: vDelegate.height});
@@ -439,28 +442,28 @@ TableView {
                         parent = fakeParent;
                     }
 
-                    let dy = mouse.y - selectionObj._refPoint.y,
-                    dRow = selectionObj._refCell.y,
+                    let dy = mouse.y - table.selection._refPoint.y,
+                    dRow = table.selection._refCell.y,
                     rowHeight = table.model.headerData(dRow, Qt.Vertical, table.model.getStrRole("height"));
 
                     if (dy >= 0) {
-                        while (dy > rowHeight && dRow < table.rows - 1) {
+                        while (dy > rowHeight && dRow < table.model.totalRowCount() - 1) {
                             dy -= rowHeight;
                             dRow++;
-                            selectionObj._refPoint.y += rowHeight;
+                            table.selection._refPoint.y += rowHeight;
                             rowHeight = table.model.headerData(dRow, Qt.Vertical, table.model.getStrRole("height"));
-                            selectionObj._refCell.y = dRow;
+                            table.selection._refCell.y = dRow;
                         }
                     } else {
                         while (dy < 0 && dRow > 0) {
                             dRow--;
                             rowHeight = table.model.headerData(dRow, Qt.Vertical, table.model.getStrRole("height"));
                             dy += rowHeight;
-                            selectionObj._refPoint.y -= rowHeight;
-                            selectionObj._refCell.y = dRow;
+                            table.selection._refPoint.y -= rowHeight;
+                            table.selection._refCell.y = dRow;
                         }
                     }
-                    selectionObj.rowsCount = dRow - selectionObj.startRow
+                    table.selection.rowsCount = dRow - table.selection.startRow
 
 
                     let cursorPos = mapToItem(table, mouse.x, mouse.y, table.width, table.height);
@@ -473,8 +476,8 @@ TableView {
                 }
 
                 onReleased: {
-                    if (selectionObj.mouseSelection) {
-                        selectionObj.mouseSelection = false
+                    if (table.selection.mouseSelection) {
+                        table.selection.mouseSelection = false
                         let fakeParent = parent;
                         if (_realParent != null)
                             parent = _realParent;
@@ -482,8 +485,8 @@ TableView {
                             destroy();
                         fakeParent.destroy();
                     }
-                    selectionObj._refPoint = Qt.point(0, 0);
-                    selectionObj._refCell = Qt.point(-1, -1);
+                    table.selection._refPoint = Qt.point(0, 0);
+                    table.selection._refCell = Qt.point(-1, -1);
                 }
             }
 
@@ -569,10 +572,17 @@ TableView {
     }
 
     function positionViewAtCell(row, column) {
-        let hPos = column / (table.columns - 1),
-            vPos = row / (table.rows - 1);
+        let hPos = column / (table.model.totalColumnCount() - 1),
+            vPos = row / (table.model.totalRowCount() - 1);
         table.contentX = table.originX + hPos * table.contentWidth - table.width / 2;
         table.contentY = table.originY + vPos * table.contentHeight - table.height / 2;
+
+
+//        // проходим по столбцам
+//        Array.prototype.forEach.call(hHeaderView.visibleChildren[0].visibleChildren, function(child) {
+//            // делаем что-нибудь с объектом child
+//            console.log("      ### child", child, child.x, child.y)
+//        });
     }
 
     anchors.leftMargin: leftPadding
@@ -588,7 +598,7 @@ TableView {
 
     columnWidthProvider: (column) => {
         let _column = column + (table._splitOrientation === Qt.Horizontal
-                               ? table._subModelIndex * table.model.subTableSizeMax : 0)
+                               ? table._subModelIndex * table.model.subtableSizeMax : 0)
         return table._savedWidth[_column] ? table._savedWidth[_column]
                                            : table.model.headerData(_column,
                                                                  Qt.Horizontal,
@@ -596,7 +606,7 @@ TableView {
     }
     rowHeightProvider: (row) => {
                            let _row = row + (table._splitOrientation === Qt.Vertical
-                                             ? table._subModelIndex * table.model.subTableSizeMax : 0)
+                                             ? table._subModelIndex * table.model.subtableSizeMax : 0)
                            return table._savedHeight[_row] ? table._savedHeight[_row]
                                                            : table.model.headerData(_row,
                                                                                     Qt.Vertical,
@@ -615,25 +625,25 @@ TableView {
 
         property QtObject selection: QtObject {
             readonly property bool highlight: {
-                let endRow = selectionObj.startRow + selectionObj.rowsCount,
-                    endCol = selectionObj.startColumn + selectionObj.columnsCount;
-                return row >= Math.min(selectionObj.startRow, endRow) && row <= Math.max(selectionObj.startRow, endRow) &&
-                        column >= Math.min(selectionObj.startColumn, endCol) && column <= Math.max(selectionObj.startColumn, endCol);
+                let endRow = table.selection.startRow + table.selection.rowsCount,
+                    endCol = table.selection.startColumn + table.selection.columnsCount;
+                return row >= Math.min(table.selection.startRow, endRow) && row <= Math.max(table.selection.startRow, endRow) &&
+                        column >= Math.min(table.selection.startColumn, endCol) && column <= Math.max(table.selection.startColumn, endCol);
             }
             readonly property bool top: highlight &&
                                         table.model.absoluteRow(model.row, table._subModelIndex) ===
-                                        Math.min(selectionObj.startRow, selectionObj.startRow + selectionObj.rowsCount)
+                                        Math.min(table.selection.startRow, table.selection.startRow + table.selection.rowsCount)
             readonly property bool bottom: highlight &&
                                            table.model.absoluteRow(model.row, table._subModelIndex) ===
-                                           Math.max(selectionObj.startRow, selectionObj.startRow + selectionObj.rowsCount)
+                                           Math.max(table.selection.startRow, table.selection.startRow + table.selection.rowsCount)
             readonly property bool left: highlight &&
                                          table.model.absoluteColumn(model.column,
                                                                     table._subModelIndex) ===
-                                         Math.min(selectionObj.startColumn, selectionObj.startColumn + selectionObj.columnsCount)
+                                         Math.min(table.selection.startColumn, table.selection.startColumn + table.selection.columnsCount)
             readonly property bool right: highlight &&
                                           table.model.absoluteColumn(model.column,
                                                                      table._subModelIndex) ===
-                                          Math.max(selectionObj.startColumn, selectionObj.startColumn + selectionObj.columnsCount)
+                                          Math.max(table.selection.startColumn, table.selection.startColumn + table.selection.columnsCount)
         }
 
         sourceComponent: table.cellDeleagate
@@ -650,24 +660,26 @@ TableView {
             propagateComposedEvents: true
 
             onContainsMouseChanged: {
-                selectionObj.hoverRow = row;
-                selectionObj.hoverColumn = column;
+                table.selection.hoverRow = row;
+                table.selection.hoverColumn = column;
             }
 
             onWheel: {
+                if (!table.scrollByWheel)
+                    return;
                 table.cancelFlick();
                 if (wheel.modifiers & Qt.ShiftModifier) {
-                    table.flick(wheel.angleDelta.y * 50, 0);
+                    table.flick(wheel.angleDelta.y * 20, 0);
                     return;
                 }
-                table.flick(0, wheel.angleDelta.y * 50);
+                table.flick(0, wheel.angleDelta.y * 20);
             }
 
             onPositionChanged: {
                 if (!pressed)
                     return;
-                if (!selectionObj.mouseSelection) {
-                    selectionObj.mouseSelection = true;
+                if (!table.selection.mouseSelection) {
+                    table.selection.mouseSelection = true;
 
                     var fakeParent = fakeParentComponent.createObject(
                                 delegateLoader.parent, {x: delegateLoader.x, y: delegateLoader.y,
@@ -676,8 +688,8 @@ TableView {
                     selectionMouseArea.parent = fakeParent;
                 }
 
-                let dx = mouse.x - selectionObj._refPoint.x, dy = mouse.y - selectionObj._refPoint.y,
-                    dRow = selectionObj._refCell.y, dColumn = selectionObj._refCell.x,
+                let dx = mouse.x - table.selection._refPoint.x, dy = mouse.y - table.selection._refPoint.y,
+                    dRow = table.selection._refCell.y, dColumn = table.selection._refCell.x,
                     colWidth = table.model.headerData(dColumn, Qt.Horizontal, table.model.getStrRole("width")),
                     rowHeight = table.model.headerData(dRow, Qt.Vertical, table.model.getStrRole("height"));
 
@@ -685,40 +697,40 @@ TableView {
                     while (dx > colWidth && dColumn < table.columns - 1) {
                         dx -= colWidth;
                         dColumn++;
-                        selectionObj._refPoint.x += colWidth;
+                        table.selection._refPoint.x += colWidth;
                         colWidth = table.model.headerData(dColumn, Qt.Horizontal, table.model.getStrRole("width"));
-                        selectionObj._refCell.x = dColumn;
+                        table.selection._refCell.x = dColumn;
                     }
                 } else {
                     while (dx < 0 && dColumn > 0) {
                         dColumn--;
                         colWidth = table.model.headerData(dColumn, Qt.Horizontal, table.model.getStrRole("width"));
                         dx += colWidth;
-                        selectionObj._refPoint.x -= colWidth;
-                        selectionObj._refCell.x = dColumn;
+                        table.selection._refPoint.x -= colWidth;
+                        table.selection._refCell.x = dColumn;
                     }
                 }
 
                 if (dy >= 0) {
-                    while (dy > rowHeight && dRow < table.rows - 1) {
+                    while (dy > rowHeight && dRow < table.model.totalRowCount() - 1) {
                         dy -= rowHeight;
                         dRow++;
-                        selectionObj._refPoint.y += rowHeight;
+                        table.selection._refPoint.y += rowHeight;
                         rowHeight = table.model.headerData(dRow, Qt.Vertical, table.model.getStrRole("height"));
-                        selectionObj._refCell.y = dRow;
+                        table.selection._refCell.y = dRow;
                     }
                 } else {
                     while (dy < 0 && dRow > 0) {
                         dRow--;
                         rowHeight = table.model.headerData(dRow, Qt.Vertical, table.model.getStrRole("height"));
                         dy += rowHeight;
-                        selectionObj._refPoint.y -= rowHeight;
-                        selectionObj._refCell.y = dRow;
+                        table.selection._refPoint.y -= rowHeight;
+                        table.selection._refCell.y = dRow;
                     }
                 }
 
-                selectionObj.rowsCount = dRow - selectionObj.startRow
-                selectionObj.columnsCount = dColumn - selectionObj.startColumn
+                table.selection.rowsCount = dRow - table.selection.startRow
+                table.selection.columnsCount = dColumn - table.selection.startColumn
 
 
                 let cursorPos = mapToItem(table, mouse.x, mouse.y, table.width, table.height);
@@ -735,8 +747,8 @@ TableView {
             }
 
             onReleased: {
-                if (selectionObj.mouseSelection) {
-                    selectionObj.mouseSelection = false
+                if (table.selection.mouseSelection) {
+                    table.selection.mouseSelection = false
                     let fakeParent = parent;
                     if (_realParent != null)
                         parent = _realParent;
@@ -744,35 +756,35 @@ TableView {
                         destroy();
                     fakeParent.destroy();
                 }
-                selectionObj._refPoint = Qt.point(0, 0);
-                selectionObj._refCell = Qt.point(column, row);
+                table.selection._refPoint = Qt.point(0, 0);
+                table.selection._refCell = Qt.point(column, row);
             }
 
             onPressed: {
                 table.cancelFlick();
                 if (mouse.modifiers & Qt.ShiftModifier &&
-                        selectionObj.startRow >= 0 && selectionObj.startColumn >= 0) {
+                        table.selection.startRow >= 0 && table.selection.startColumn >= 0) {
 
-                    selectionObj.rowsCount = Math.abs(row - selectionObj.startRow);
-                    selectionObj.columnsCount = Math.abs(column - selectionObj.startColumn);
+                    table.selection.rowsCount = Math.abs(row - table.selection.startRow);
+                    table.selection.columnsCount = Math.abs(column - table.selection.startColumn);
 
-                    if (selectionObj.rowsCount == 0 && selectionObj.columnsCount == 0) {
-                        selectionObj.startRow = -1
-                        selectionObj.startColumn = -1
+                    if (table.selection.rowsCount == 0 && table.selection.columnsCount == 0) {
+                        table.selection.startRow = -1
+                        table.selection.startColumn = -1
                         return;
                     }
 
-                    selectionObj.startRow = Math.min(selectionObj.startRow, row);
-                    selectionObj.startColumn = Math.min(selectionObj.startColumn, column);
+                    table.selection.startRow = Math.min(table.selection.startRow, row);
+                    table.selection.startColumn = Math.min(table.selection.startColumn, column);
                     return;
                 }
 
-                selectionObj._refPoint = Qt.point(0, 0);
-                selectionObj._refCell = Qt.point(column, row);
+                table.selection._refPoint = Qt.point(0, 0);
+                table.selection._refCell = Qt.point(column, row);
 
-                selectionObj.startRow = row;
-                selectionObj.startColumn = column;
-                selectionObj.rowsCount = selectionObj.columnsCount = 0
+                table.selection.startRow = row;
+                table.selection.startColumn = column;
+                table.selection.rowsCount = table.selection.columnsCount = 0
             }
         }
     }
@@ -855,81 +867,81 @@ TableView {
     }
 
     Keys.onPressed: {
-        if (selectionObj.startColumn < 0 || selectionObj.startRow < 0)
+        if (table.selection.startColumn < 0 || table.selection.startRow < 0)
             return;
 
         if (event.key == Qt.Key_Right) {
             if (event.modifiers & Qt.ShiftModifier) {
-                selectionObj.columnsCount++;
+                table.selection.columnsCount++;
             } else {
-                selectionObj.rowsCount = selectionObj.columnsCount = 0;
-                selectionObj.startColumn++;
+                table.selection.rowsCount = table.selection.columnsCount = 0;
+                table.selection.startColumn++;
             }
 
-            if (selectionObj.startColumn >= table.columns)
-                selectionObj.startColumn = 0;
+            if (table.selection.startColumn >= table.model.totalColumnCount())
+                table.selection.startColumn = 0;
         }
         if (event.key == Qt.Key_Left) {
             if (event.modifiers & Qt.ShiftModifier) {
-                selectionObj.columnsCount--;
+                table.selection.columnsCount--;
             } else {
-                selectionObj.rowsCount = selectionObj.columnsCount = 0;
-                selectionObj.startColumn--;
+                table.selection.rowsCount = table.selection.columnsCount = 0;
+                table.selection.startColumn--;
             }
 
-            if (selectionObj.startColumn < 0)
-                selectionObj.startColumn = table.columns - 1;
+            if (table.selection.startColumn < 0)
+                table.selection.startColumn = table.model.totalColumnCount() - 1;
         }
         if (event.key == Qt.Key_Down) {
             if (event.modifiers & Qt.ShiftModifier) {
-                selectionObj.rowsCount++;
+                table.selection.rowsCount++;
             } else {
-                selectionObj.rowsCount = selectionObj.columnsCount = 0;
-                selectionObj.startRow++;
+                table.selection.rowsCount = table.selection.columnsCount = 0;
+                table.selection.startRow++;
             }
 
-            if (selectionObj.startRow >= table.rows)
-                selectionObj.startRow = 0;
+            if (table.selection.startRow >= table.model.totalRowCount())
+                table.selection.startRow = 0;
         }
         if (event.key == Qt.Key_Up) {
             if (event.modifiers & Qt.ShiftModifier) {
-                selectionObj.rowsCount--;
+                table.selection.rowsCount--;
             } else {
-                selectionObj.rowsCount = selectionObj.columnsCount = 0;
-                selectionObj.startRow--;
+                table.selection.rowsCount = table.selection.columnsCount = 0;
+                table.selection.startRow--;
             }
-            if (selectionObj.startRow < 0)
-                selectionObj.startRow = table.rows - 1;
+            if (table.selection.startRow < 0)
+                table.selection.startRow = table.rows - 1;
         }
 
         if (event.key == Qt.Key_Enter || event.key == Qt.Key_Return) {
-            selectionObj.rowsCount = selectionObj.columnsCount = 0;
-            selectionObj.startRow++;
-            if (selectionObj.startRow >= table.rows) {
-                selectionObj.startRow = 0;
-                selectionObj.startColumn++;
-                if (selectionObj.startColumn >= table.columns)
-                    selectionObj.startColumn = 0;
+            table.selection.rowsCount = table.selection.columnsCount = 0;
+            table.selection.startRow++;
+            if (table.selection.startRow >= table.rows) {
+                table.selection.startRow = 0;
+                table.selection.startColumn++;
+                if (table.selection.startColumn >= table.model.totalColumnCount())
+                    table.selection.startColumn = 0;
             }
         }
         if (event.key == Qt.Key_Tab) {
-            selectionObj.rowsCount = selectionObj.columnsCount = 0;
-            selectionObj.startColumn++;
-            if (selectionObj.startColumn >= table.columns) {
-                selectionObj.startColumn = 0;
-                selectionObj.startRow++;
-                if (selectionObj.startRow >= table.rows)
-                    selectionObj.startRow = 0;
+            table.selection.rowsCount = table.selection.columnsCount = 0;
+            table.selection.startColumn++;
+            if (table.selection.startColumn >= table.model.totalColumnCount()) {
+                table.selection.startColumn = 0;
+                table.selection.startRow++;
+                if (table.selection.startRow >= table.rows)
+                    table.selection.startRow = 0;
             }
         }
         if (event.key == Qt.Key_Backtab) {
-            selectionObj.rowsCount = selectionObj.columnsCount = 0;
-            selectionObj.startColumn--;
-            if (selectionObj.startColumn < 0) {
-                selectionObj.startColumn = table.columns - 1;
-                selectionObj.startRow--;
-                if (selectionObj.startRow < 0)
-                    selectionObj.startRow = table.rows - 1;
+            table.selection.rowsCount = table.selection.columnsCount = 0;
+            table.selection.startColumn--;
+            if (table.selection.startColumn < 0) {
+                table.selection.startColumn = table.model.totalColumnCount() - 1;
+                table.selection.startRow--;
+                if (table.selection.startRow < 0)
+                    table.selection.startRow = table.rows - 1;
             }
         }
         event.accepted = true;

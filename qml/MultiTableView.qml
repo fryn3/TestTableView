@@ -8,7 +8,7 @@ Item {
     property alias tableItem: table
     property int splitOrientation: Qt.Vertical
 
-    property int _tableCount: model.subTableCount
+    property int _tableCount: model.subtableCount
 
     property int cacheBuffer: 50
 
@@ -170,25 +170,56 @@ Item {
                 contentTablesHChanged();
         }
 
+        function calcSubtablesSize(subTable) {
+            let startIndex = 0, endIndex = root._tableCount;
+            if (subTable !== undefined) {
+                startIndex = subTable;
+                endIndex = subTable +1
+            }
+
+            for (let tableIndex = startIndex; tableIndex < endIndex; tableIndex++) {
+                let totalSize = 0
+                for (let i = 0; i < root.model.subtableSizeMax; i++) {
+                    if (root.splitOrientation === Qt.Vertical) {
+                        totalSize += table.model.subtableHeaderData(tableIndex, i, Qt.Vertical,
+                                                                    root.model.getStrRole("height"));
+                    } else {
+                        totalSize += table.model.subtableHeaderData(tableIndex, i, Qt.Horizontal,
+                                                                    root.model.getStrRole("width"));
+                    }
+                }
+                subtablesSize[tableIndex] = totalSize;
+            }
+            calcComplete = true;
+            subtablesSizeChanged();
+        }
+
+        function tablesSizeSum(from, to) {
+            if (!calcComplete)
+                return 0;
+            var sum = 0;
+            for (let i = from; i < to; i++) {
+                sum += subtablesSize[i];
+            }
+            return sum;
+        }
+
         property int completeTableCounter: 0
         property int tableToLoadCount: -1
         property var contentTablesH: []
         property var contentTablesV: []
 
-        property real implicitItemWidth: 100
-        property real implicitItemHeight: 50
-
-        property real implicitTableHeight: splitOrientation == Qt.Vertical
-                                           ? model.subTableSizeMax * (implicitItemHeight + table.rowSpacing) - table.rowSpacing
-                                           : table.contentHeight
-        property real implicitTableWidth: splitOrientation == Qt.Horizontal
-                                          ? model.subTableSizeMax * (implicitItemWidth + table.columnSpacing) - table.columnSpacing
-                                          : table.contentWidth
+        property var subtablesSize: ({})
+        property bool calcComplete: false
 
         signal forceLayout()
 
         onCompleteTableCounterChanged: if (completeTableCounter === tableToLoadCount) updateLayout()
         onTableToLoadCountChanged: if (completeTableCounter === tableToLoadCount) updateLayout()
+
+        Component.onCompleted: {
+            calcSubtablesSize()
+        }
     }
 
     Keys.onPressed: {
@@ -287,6 +318,7 @@ Item {
 
         anchors.fill: parent
         headerDelegate: root.headerDelegate
+        scrollByWheel: false
 
         bottomMargin: {
             let cHeight = (table.ScrollBar.horizontal && table.ScrollBar.horizontal.visible
@@ -294,7 +326,7 @@ Item {
             if (table._splitOrientation == Qt.Horizontal)
                 return cHeight;
 
-            return d.implicitTableHeight * root.model.subTableCount + cHeight - contentHeight
+            return d.tablesSizeSum(1, root.model.subtableCount) + cHeight;
         }
         rightMargin: {
             let cWidth = (table.ScrollBar.vertical && table.ScrollBar.vertical.visible
@@ -303,7 +335,7 @@ Item {
             if (table._splitOrientation == Qt.Vertical)
                 return cWidth;
 
-            return d.implicitTableWidth * root.model.subTableCount - contentWidth
+            return d.tablesSizeSum(1, root.model.subtableCount)
         }
 
         z: 1000
@@ -329,15 +361,13 @@ Item {
 
             property bool isVisible: {
                 if (root.splitOrientation === Qt.Horizontal) {
-                    let contX = table.contentX,
-                        contW = d.implicitTableWidth
-                    return ((contW * (_subModelIndex + 1)) >= (contX - root.cacheBuffer)) &&
-                           ((contW * (_subModelIndex)) <= (contX + root.width - table.leftPadding + root.cacheBuffer))
+                    let contX = table.contentX
+                    return (d.tablesSizeSum(0, _subModelIndex + 1) >= (contX - root.cacheBuffer)) &&
+                           (d.tablesSizeSum(0, _subModelIndex - 1) <= (contX + root.width - table.leftPadding + root.cacheBuffer))
                 } else {
-                    let contY = table.contentY,
-                        contH = d.implicitTableHeight
-                    return ((contH * (_subModelIndex + 1)) >= (contY - root.cacheBuffer)) &&
-                           ((contH * (_subModelIndex - 1)) <= (contY + root.height - table.topPadding + root.cacheBuffer))
+                    let contY = table.contentY
+                    return ((d.tablesSizeSum(0, _subModelIndex + 1)) >= (contY - root.cacheBuffer)) &&
+                           ((d.tablesSizeSum(0, _subModelIndex - 1)) <= (contY + root.height - table.topPadding + root.cacheBuffer))
                 }
             }
             property int _subModelIndex: 0
@@ -362,6 +392,7 @@ Item {
 
                 selection: table.selection
                 cellDeleagate: root.cellDeleagate
+                scrollByWheel: false
 
                 contentX: table.contentX + (root.splitOrientation === Qt.Horizontal
                                             ? -leftMargin : 0)
@@ -373,19 +404,19 @@ Item {
                 topMargin: {
                     if (root.splitOrientation == Qt.Horizontal)
                         return 0;
-                    return d.implicitTableHeight * (_subModelIndex+1) - contentHeight + table.topPadding;
+                    return d.tablesSizeSum(0, _subModelIndex) + table.topPadding;
                 }
                 bottomMargin: {
                     let cHeight = (table.ScrollBar.horizontal && table.ScrollBar.horizontal.visible
                                    ? table.ScrollBar.horizontal.height : 0);
                     if (root.splitOrientation == Qt.Horizontal)
                         return cHeight;
-                    return d.implicitTableHeight * (root.model.subTableCount - _subModelIndex) - cHeight + contentHeight;
+                    return d.tablesSizeSum(_subModelIndex + 1, root.model.subtableCount) - cHeight;
                 }
                 leftMargin: {
                     if (root.splitOrientation == Qt.Vertical)
                         return 0;
-                    return d.implicitTableWidth * (_subModelIndex+1) - contentWidth + table.leftPadding;
+                    return d.tablesSizeSum(0, _subModelIndex) + table.leftPadding;
                 }
                 rightMargin: {
                     let cWidth = (table.ScrollBar.vertical && table.ScrollBar.vertical.visible
@@ -393,7 +424,7 @@ Item {
 
                     if (root.splitOrientation  == Qt.Vertical)
                         return cWidth;
-                    return d.implicitTableWidth * (root.model.subTableCount - _subModelIndex) - cWidth + contentWidth;
+                    return d.tablesSizeSum(_subModelIndex + 1, root.model.subtableCount) - cWidth;
                 }
 
                 model: table.model
@@ -429,6 +460,22 @@ Item {
                     }
                 }
             }
+        }
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.NoButton
+        hoverEnabled: false
+        cursorShape: table._cursorShape
+        z: 10000
+        onWheel: {
+            table.cancelFlick();
+            if (wheel.modifiers & Qt.ShiftModifier) {
+                table.flick(wheel.angleDelta.y * 20, 0);
+                return;
+            }
+            table.flick(0, wheel.angleDelta.y * 20);
         }
     }
 }

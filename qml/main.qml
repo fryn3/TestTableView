@@ -46,98 +46,98 @@ Window {
 //        }
 //    }
 
-    ColumnLayout {
-        Component.onCompleted: {
-            _tcb.disabledOverlay = _overlayDis.text
-            _tcb.disabledOpacity = Number(_opacityDis.text)
-            _tcb.normalOverlay = _overlayNorm.text
-            _tcb.normalOpacity = Number(_opacityNorm.text)
-            _tcb.hoverOverlay = _overlayHover.text
-            _tcb.hoverOpacity = Number(_opacityHover.text)
-            _tcb.selectedOverlay = _overlaySelect.text
-            _tcb.selectedOpacity = Number(_opacitySelect.text)
-        }
+//    ColumnLayout {
+//        Component.onCompleted: {
+//            _tcb.disabledOverlay = _overlayDis.text
+//            _tcb.disabledOpacity = Number(_opacityDis.text)
+//            _tcb.normalOverlay = _overlayNorm.text
+//            _tcb.normalOpacity = Number(_opacityNorm.text)
+//            _tcb.hoverOverlay = _overlayHover.text
+//            _tcb.hoverOpacity = Number(_opacityHover.text)
+//            _tcb.selectedOverlay = _overlaySelect.text
+//            _tcb.selectedOpacity = Number(_opacitySelect.text)
+//        }
 
-        anchors.top: _menu.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.margins: 20
-        TestColorBar {
-            id: _tcb
-            disabledOverlay: _overlayDis.text
-            disabledOpacity: Number(_opacityDis.text)
-            normalOverlay: _overlayNorm.text
-            normalOpacity: Number(_opacityNorm.text)
-            hoverOverlay: _overlayHover.text
-            hoverOpacity: Number(_opacityHover.text)
-            selectedOverlay: _overlaySelect.text
-            selectedOpacity: Number(_opacitySelect.text)
-        }
+//        anchors.top: _menu.bottom
+//        anchors.left: parent.left
+//        anchors.right: parent.right
+//        anchors.margins: 20
+//        TestColorBar {
+//            id: _tcb
+//            disabledOverlay: _overlayDis.text
+//            disabledOpacity: Number(_opacityDis.text)
+//            normalOverlay: _overlayNorm.text
+//            normalOpacity: Number(_opacityNorm.text)
+//            hoverOverlay: _overlayHover.text
+//            hoverOpacity: Number(_opacityHover.text)
+//            selectedOverlay: _overlaySelect.text
+//            selectedOpacity: Number(_opacitySelect.text)
+//        }
 
-        RowLayout {
-            property alias prOverlay: _overlayDis.text
-            property alias prOpacity: _opacityDis.text
-            Item {
-                implicitWidth: 100
-                Text {
-                    text: modelData
-                }
-            }
-            TextField {
-                id: _overlayDis
-            }
-            TextField {
-                id: _opacityDis
-            }
-        }
-        RowLayout {
-            property alias prOverlay: _overlayNorm.text
-            property alias prOpacity: _opacityNorm.text
-            Item {
-                implicitWidth: 100
-                Text {
-                    text: modelData
-                }
-            }
-            TextField {
-                id: _overlayNorm
-            }
-            TextField {
-                id: _opacityNorm
-            }
-        }
-        RowLayout {
-            property alias prOverlay: _overlayHover.text
-            property alias prOpacity: _opacityHover.text
-            Item {
-                implicitWidth: 100
-                Text {
-                    text: modelData
-                }
-            }
-            TextField {
-                id: _overlayHover
-            }
-            TextField {
-                id: _opacityHover
-            }
-        }
-        RowLayout {
-            property alias prOverlay: _overlaySelect.text
-            property alias prOpacity: _opacitySelect.text
-            Item {
-                implicitWidth: 100
-                Text {
-                    text: modelData
-                }
-            }
-            TextField {
-                id: _overlaySelect
-            }
-            TextField {
-                id: _opacitySelect
-            }
-        }
+//        RowLayout {
+//            property alias prOverlay: _overlayDis.text
+//            property alias prOpacity: _opacityDis.text
+//            Item {
+//                implicitWidth: 100
+//                Text {
+//                    text: modelData
+//                }
+//            }
+//            TextField {
+//                id: _overlayDis
+//            }
+//            TextField {
+//                id: _opacityDis
+//            }
+//        }
+//        RowLayout {
+//            property alias prOverlay: _overlayNorm.text
+//            property alias prOpacity: _opacityNorm.text
+//            Item {
+//                implicitWidth: 100
+//                Text {
+//                    text: modelData
+//                }
+//            }
+//            TextField {
+//                id: _overlayNorm
+//            }
+//            TextField {
+//                id: _opacityNorm
+//            }
+//        }
+//        RowLayout {
+//            property alias prOverlay: _overlayHover.text
+//            property alias prOpacity: _opacityHover.text
+//            Item {
+//                implicitWidth: 100
+//                Text {
+//                    text: modelData
+//                }
+//            }
+//            TextField {
+//                id: _overlayHover
+//            }
+//            TextField {
+//                id: _opacityHover
+//            }
+//        }
+//        RowLayout {
+//            property alias prOverlay: _overlaySelect.text
+//            property alias prOpacity: _opacitySelect.text
+//            Item {
+//                implicitWidth: 100
+//                Text {
+//                    text: modelData
+//                }
+//            }
+//            TextField {
+//                id: _overlaySelect
+//            }
+//            TextField {
+//                id: _opacitySelect
+//            }
+//        }
 
 //        Repeater {
 //            id: _rep
@@ -183,7 +183,7 @@ Window {
 //            model: 4
 //            delegate: TestColorBar {}
 //        }
-    }
+//    }
 //    Repeater {
 //        anchors.top: _menu.bottom
 //        anchors.left: parent.left
@@ -244,8 +244,9 @@ Window {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         clip: true
-//        MultiTableView {
-        CustomTableView {
+        MultiTableView {
+
+//        CustomTableView {
             id: table
 
             anchors.fill: parent
