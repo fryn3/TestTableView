@@ -52,11 +52,10 @@ Item {
         implicitHeight: table.model.headerData(row, Qt.Vertical, table.model.getStrRole("height")) || 50
 
         border.color: "#2E2D2D"
-        color: selection.highlight ? "#3A3A3A"
-                                   : view ? view.model.subtableData(view._subModelIndex,
+        color: view ? view.model.subtableData(view._subModelIndex,
                                                                             modelData.row, modelData.column,
                                                                             view.model.getStrRole("background"))
-                                          : "#414141"
+                    : "#414141"
         clip: true
 
         TextEdit {
@@ -140,6 +139,17 @@ Item {
             visible: selection.highlight
             color: "#00000000"
             border.color: "#7284FF"
+        }
+
+        Rectangle {
+            anchors {
+                fill: parent
+                margins: 1
+            }
+
+            visible: selection.active
+            color: "#00000000"
+            border.color: "#ffffff"
         }
     }
 
@@ -229,76 +239,138 @@ Item {
         if (event.key == Qt.Key_Right) {
             if (event.modifiers & Qt.ShiftModifier) {
                 table.selection.columnsCount++;
+                if (table.selection.activeColumn < Math.min(table.selection.startColumn,
+                                                            table.selection.startColumn + table.selection.columnsCount))
+                    table.selection.activeColumn++;
             } else {
                 table.selection.rowsCount = table.selection.columnsCount = 0;
                 table.selection.startColumn++;
+                table.selection.activeColumn = table.selection.startColumn;
             }
 
-            if (table.selection.startColumn >= table.columns)
-                table.selection.startColumn = 0;
+            if (table.selection.startColumn >= table.model.totalColumnCount()) {
+                table.selection.activeColumn = table.selection.startColumn = 0;
+            }
         }
         if (event.key == Qt.Key_Left) {
             if (event.modifiers & Qt.ShiftModifier) {
                 table.selection.columnsCount--;
+                if (table.selection.activeColumn > Math.max(table.selection.startColumn,
+                                                            table.selection.startColumn + table.selection.columnsCount))
+                    table.selection.activeColumn--;
             } else {
                 table.selection.rowsCount = table.selection.columnsCount = 0;
                 table.selection.startColumn--;
+                table.selection.activeColumn = table.selection.startColumn;
             }
 
             if (table.selection.startColumn < 0)
-                table.selection.startColumn = table.columns - 1;
+                table.selection.activeColumn = table.selection.startColumn = table.model.totalColumnCount() - 1;
         }
         if (event.key == Qt.Key_Down) {
             if (event.modifiers & Qt.ShiftModifier) {
                 table.selection.rowsCount++;
+                if (table.selection.activeRow < Math.min(table.selection.startRow,
+                                                            table.selection.startRow + table.selection.rowsCount))
+                    table.selection.activeRow++;
             } else {
                 table.selection.rowsCount = table.selection.columnsCount = 0;
                 table.selection.startRow++;
+                table.selection.activeRow = table.selection.startRow;
             }
 
-            if (table.selection.startRow >= table.rows)
-                table.selection.startRow = 0;
+            if (table.selection.startRow >= table.model.totalRowCount())
+                table.selection.activeRow = table.selection.startRow = 0;
         }
         if (event.key == Qt.Key_Up) {
             if (event.modifiers & Qt.ShiftModifier) {
                 table.selection.rowsCount--;
+                if (table.selection.activeRow > Math.max(table.selection.startRow,
+                                                            table.selection.startRow + table.selection.rowsCount))
+                    table.selection.activeRow--;
             } else {
                 table.selection.rowsCount = table.selection.columnsCount = 0;
                 table.selection.startRow--;
+                table.selection.activeRow = table.selection.startRow;
             }
             if (table.selection.startRow < 0)
-                table.selection.startRow = table.rows - 1;
+                table.selection.activeRow = table.selection.startRow = table.rows - 1;
         }
 
         if (event.key == Qt.Key_Enter || event.key == Qt.Key_Return) {
-            table.selection.rowsCount = table.selection.columnsCount = 0;
-            table.selection.startRow++;
-            if (table.selection.startRow >= table.rows) {
-                table.selection.startRow = 0;
-                table.selection.startColumn++;
-                if (table.selection.startColumn >= table.columns)
-                    table.selection.startColumn = 0;
+            table.selection.activeRow++;
+            if (table.selection.rowsCount !== 0) {
+                if (table.selection.activeRow >
+                        Math.max(table.selection.startRow , table.selection.startRow + table.selection.rowsCount)) {
+                    table.selection.activeRow = Math.min(table.selection.startRow,
+                                                         table.selection.startRow + table.selection.rowsCount);
+                    table.selection.activeColumn++;
+                    if (table.selection.activeColumn >
+                            Math.max(table.selection.startColumn, table.selection.startColumn + table.selection.columnsCount))
+                        table.selection.activeColumn = Math.min(table.selection.startColumn,
+                                                                table.selection.startColumn + table.selection.columnsCount);
+                }
+            } else {
+                table.selection.startRow++;
+                if (table.selection.activeRow >= table.model.totalRowCount()) {
+                    table.selection.startRow = table.selection.activeRow = 0;
+                    table.selection.activeColumn++;
+                    table.selection.startColumn++;
+                    if (table.selection.activeColumn >= table.model.totalColumnCount())
+                        table.selection.startColumn = table.selection.activeColumn = 0;
+                }
             }
         }
         if (event.key == Qt.Key_Tab) {
-            table.selection.rowsCount = table.selection.columnsCount = 0;
-            table.selection.startColumn++;
-            if (table.selection.startColumn >= table.columns) {
-                table.selection.startColumn = 0;
-                table.selection.startRow++;
-                if (table.selection.startRow >= table.rows)
-                    table.selection.startRow = 0;
+            table.selection.activeColumn++;
+            if (table.selection.columnsCount !== 0) {
+                if (table.selection.activeColumn >
+                        Math.max(table.selection.startColumn, table.selection.startColumn + table.selection.columnsCount)) {
+                    table.selection.activeColumn = Math.min(table.selection.startColumn,
+                                                            table.selection.startColumn + table.selection.columnsCount);
+                    table.selection.activeRow++;
+                    if (table.selection.activeRow >
+                            Math.max(table.selection.startRow, table.selection.startRow + table.selection.rowsCount))
+                        table.selection.activeRow = Math.min(table.selection.startRow,
+                                                             table.selection.startRow + table.selection.rowsCount);
+                }
+            } else {
+                table.selection.startColumn++;
+                if (table.selection.activeColumn >= table.model.totalColumnCount()) {
+                    table.selection.activeColumn = table.selection.startColumn = 0;
+                    table.selection.startRow++;
+                    table.selection.activeRow++;
+                    if (table.selection.activeRow >= table.model.totalRowCount())
+                        table.selection.activeRow = table.selection.startRow = 0;
+                }
             }
+
         }
         if (event.key == Qt.Key_Backtab) {
-            table.selection.rowsCount = table.selection.columnsCount = 0;
-            table.selection.startColumn--;
-            if (table.selection.startColumn < 0) {
-                table.selection.startColumn = table.columns - 1;
-                table.selection.startRow--;
-                if (table.selection.startRow < 0)
-                    table.selection.startRow = table.rows - 1;
+            table.selection.activeColumn--;
+
+            if (table.selection.columnsCount !== 0) {
+                if (table.selection.activeColumn < Math.min(table.selection.startColumn,
+                                                            table.selection.startColumn + table.selection.columnsCount)) {
+                    table.selection.activeColumn = Math.max(table.selection.startColumn,
+                                                            table.selection.startColumn + table.selection.columnsCount);
+                    table.selection.activeRow--;
+                    if (table.selection.activeRow < Math.min(table.selection.startRow,
+                                                             table.selection.startRow + table.selection.rowsCount))
+                        table.selection.activeRow = Math.max(table.selection.startRow,
+                                                             table.selection.startRow + table.selection.rowsCount);
+                }
+            } else {
+                table.selection.startColumn--;
+                if (table.selection.activeColumn < 0) {
+                    table.selection.activeColumn = table.selection.startColumn = table.model.totalColumnCount() - 1;
+                    table.selection.startRow--;
+                    table.selection.activeRow--;
+                    if (table.selection.activeRow < 0)
+                        table.selection.activeRow = table.selection.startRow = table.model.totalRowCount() - 1;
+                }
             }
+
         }
         event.accepted = true;
     }
