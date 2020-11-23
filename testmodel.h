@@ -2,12 +2,9 @@
 
 #include "subtablemodel.h"
 
-#include <QTimer>
-
 class TestModel : public SubtableModel
 {
     Q_OBJECT
-
 public:
     static const QString MODULE_NAME;   // TestM
     static const QString ITEM_NAME;     // TestModel
@@ -15,16 +12,16 @@ public:
     TestModel(int rows = 5, int columns = 5, QObject *parent = nullptr);
     virtual ~TestModel() = default;
 
-    enum VectorRole {
+    enum TestRole {
         // cell
-        VectorRoleSecondValue,
+        TestRoleSecondValue,
         // vertical header
-        VectorRoleAddBreakPoint,
+        TestRoleAddBreakPoint,
 
-        VectorRoleCOUNT
+        TestRoleCOUNT
     };
-    Q_ENUM(VectorRole)
-    static const std::array<QString, VectorRoleCOUNT> VECTOR_ROLE_STR;
+    Q_ENUM(TestRole)
+    static const std::array<QString, TestRoleCOUNT> TEST_ROLE_STR;
 
     Q_INVOKABLE bool setColumnCount(int count);
     Q_INVOKABLE void setRowCount(int count);

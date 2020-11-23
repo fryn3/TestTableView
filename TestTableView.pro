@@ -13,10 +13,12 @@ include(../SubtableModel/SubtableModel.pri)
 
 SOURCES += \
         main.cpp \
-        testmodel.cpp
+        testmodel.cpp \
+        vectormodel.cpp
 
 HEADERS += \
-    testmodel.h
+    testmodel.h \
+    vectormodel.h
 
 
 
