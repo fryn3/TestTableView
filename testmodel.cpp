@@ -13,8 +13,11 @@ const QString TestModel::MODULE_NAME = "TestM";
 const QString TestModel::ITEM_NAME = "TestModel";
 const bool TestModel::IS_QML_REG = registerMe();
 
-const std::array<QString, TestModel::VectorRoleCOUNT> TestModel::VECTOR_ROLE_STR {
+const std::array<QString, TestModel::TestRoleCOUNT> TestModel::TEST_ROLE_STR {
+    // cell
     "secondValue",
+    // vertical header
+    "addBreakPoint",
 };
 
 TestModel::TestModel(int rows, int columns, QObject *parent)
@@ -51,8 +54,8 @@ int TestModel::totalColumnCount() const {
 QHash<int, QByteArray> TestModel::roleNames() const {
     SubtableModel::roleNames();
     const int MIN_KEY = Qt::UserRole + SubtableRoleCOUNT;
-    for (int i = 0; i < VectorRoleCOUNT; ++i) {
-        _rolesId.insert(MIN_KEY + i, VECTOR_ROLE_STR[i].toUtf8());
+    for (int i = 0; i < TestRoleCOUNT; ++i) {
+        _rolesId.insert(MIN_KEY + i, TEST_ROLE_STR[i].toUtf8());
     }
     qDebug() << __PRETTY_FUNCTION__ << _rolesId;
     return _rolesId;
@@ -84,7 +87,14 @@ QVariant TestModel::data(const QModelIndex &index, int role) const {
     case SubtableRoleAlignment:
         return (1 << (index.row() % 4)) | (0x20 << index.column() % 3);
     case SubtableRoleBackground:
-        return QColor(0x80, 0, 0xFF, index.row() % 2 ? 255 : 128);
+        if (c == 1) {
+            return QColor(0x4D, 0x5A, 0xB2, 255 * 0.4);
+        } else if (c == 3) {
+            return QColor(0xDC, 0xAA, 0x29);
+        } else if (c == 5) {
+            return QColor(0x50, 0x34, 0x34, 255 * .1);
+        }
+        return QColor(0x53, 0x53, 0x53, r % 2 ? 255 : 128);
     case SubtableRoleToolTip:
         return "SubtableRoleToolTip";
     case SubtableRoleReadOnly:
@@ -99,10 +109,10 @@ QVariant TestModel::data(const QModelIndex &index, int role) const {
     case SubtableRoleDropdown:
         return QStringList {"aaBbcc", "abc", "aAacc", "aa bb cc", "AABBCC"};
     default:
-        // Обработка VectorRole.
+        // Обработка TestRole.
         role -= SubtableRoleCOUNT;
         switch (role) {
-        case VectorRoleSecondValue:
+        case TestRoleSecondValue:
             return r + c / 1000.;
         default:
             qDebug() << __PRETTY_FUNCTION__ << "bad role:" << index << role;
@@ -161,7 +171,7 @@ QVariant TestModel::headerData(int section, Qt::Orientation orientation, int rol
         case SubtableRoleToolTip:
             return "SubtableRoleToolTip Head H";
         case SubtableRoleWidth:
-            return (section % 5 + 1) * 15;
+            return (section % 3 + 1) * 45;
         case SubtableRoleHeight:
             return -1;
         case SubtableRoleResized:
@@ -171,7 +181,7 @@ QVariant TestModel::headerData(int section, Qt::Orientation orientation, int rol
         case SubtableRoleIndexInGroup:
             return section % 10 < 3 ? section % 10 : -1;
         case SubtableRoleDeploy:
-            return section % 10 < 3 ? (section / 10) % 2 ? true : false : false;
+            return section % 10 < 3 && (section / 10) % 2;
         default:
             qDebug() << __PRETTY_FUNCTION__ << "bad role:" << role;
             return QVariant();
@@ -189,7 +199,7 @@ QVariant TestModel::headerData(int section, Qt::Orientation orientation, int rol
         case SubtableRoleWidth:
             return -1;
         case SubtableRoleHeight:
-            return (section % 5 + 1) * 7;
+            return (section % 4 + 1) * 15;
         case SubtableRoleResized:
             return section % 2;
         case SubtableRoleGroup:
@@ -197,7 +207,7 @@ QVariant TestModel::headerData(int section, Qt::Orientation orientation, int rol
         case SubtableRoleIndexInGroup:
             return section % 10 < 3 ? section % 10 : -1;
         case SubtableRoleDeploy:
-            return section % 10 < 3 ? (section / 10) % 2 ? true : false : false;
+            return section % 10 < 3 && (section / 10) % 2;
         default:
             qDebug() << __PRETTY_FUNCTION__ << "bad role:" << role;
             return QVariant();
