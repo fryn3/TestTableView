@@ -144,6 +144,22 @@ public:
     Q_INVOKABLE bool nextFind(QString data, bool inBus);
 
     /*!
+     * \brief Переход к предыдущей команде скан
+     *
+     * Работает по кругу.
+     * \return false, если нет ни одной команды scan.
+     */
+    Q_INVOKABLE bool prevScan();
+
+    /*!
+     * \brief Переход к следующей команде скан
+     *
+     * Работает по кругу.
+     * \return false, если нет ни одной команды scan.
+     */
+    Q_INVOKABLE bool nextScan();
+
+    /*!
      * \brief Модель заголовков
      *
      * Будет менятся в зависимости от конфигураций пинов и при сворачивании

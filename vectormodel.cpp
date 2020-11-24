@@ -85,6 +85,14 @@ bool VectorModel::nextFind(QString data, bool inBus) {
     return false;
 }
 
+bool VectorModel::prevScan() {
+    return false;
+}
+
+bool VectorModel::nextScan() {
+    return false;
+}
+
 QStringListModel* VectorModel::pins() {
     return new QStringListModel(this);
 }

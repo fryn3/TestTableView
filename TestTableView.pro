@@ -12,11 +12,13 @@ include(../IT_QMLRepository/IT_QMLRepository.pri)
 include(../SubtableModel/SubtableModel.pri)
 
 SOURCES += \
+        appengine.cpp \
         main.cpp \
         testmodel.cpp \
         vectormodel.cpp
 
 HEADERS += \
+    appengine.h \
     testmodel.h \
     vectormodel.h
 
