@@ -189,6 +189,7 @@ TableView {
             activeColumn = startColumn = column;
             rowsCount = 0;
             columnsCount = 0;
+            table.positionViewAtCell(activeRow, activeColumn, Qt.AlignCenter);
         }
     }
 
@@ -345,6 +346,8 @@ TableView {
         }
 
         MouseArea {
+            objectName: "internalMA"
+
             property point pressPoint: Qt.point(-1,-1)
             property real currentWidth: -1
             property int _index: horizontalHeader._editWidthIndex
@@ -540,6 +543,8 @@ TableView {
         }
 
         MouseArea {
+            objectName: "internalMA"
+
             property point pressPoint: Qt.point(-1,-1)
             property real currentHeight: -1
             property int _index: verticalHeader._editHeightIndex
@@ -582,18 +587,87 @@ TableView {
         }
     }
 
-    function positionViewAtCell(row, column) {
-        let hPos = column / (table.model.totalColumnCount() - 1),
-            vPos = row / (table.model.totalRowCount() - 1);
-        table.contentX = table.originX + hPos * table.contentWidth - table.width / 2;
-        table.contentY = table.originY + vPos * table.contentHeight - table.height / 2;
+    function positionViewAtCell(row, column, alignment) {
+        let needHRecenter = false, needVRecenter = false;
 
+        if (!alignment || alignment & (Qt.AlignCenter | Qt.AlignHCenter | Qt.AlignLeft | Qt.AlignRight)) {
+            needHRecenter = true;
+            Array.prototype.forEach.call(hHeaderView.visibleChildren[0].visibleChildren, function(child) {
+                if (child.objectName === "internalMA" || child._index !== column) {
+                    return;
+                }
 
-//        // проходим по столбцам
-//        Array.prototype.forEach.call(hHeaderView.visibleChildren[0].visibleChildren, function(child) {
-//            // делаем что-нибудь с объектом child
-//            console.log("      ### child", child, child.x, child.y)
-//        });
+                let childOnViewPos = child.x - table.contentX + table.originX;
+                if (!alignment) {
+                    if (table.contentX > child.x)
+                        table.contentX = child.x;
+                    else if ((table.contentX + table.width - rightMargin) < (child.x + child.width))
+                        table.contentX = child.x - table.width + child.width + rightMargin
+                    needHRecenter = false;
+                } else if (alignment & Qt.AlignCenter || alignment & Qt.AlignHCenter) {
+                    table.contentX += childOnViewPos - (table.width - child.width) / 2;
+                    needHRecenter = false;
+                    return;
+                } else if (alignment & Qt.AlignLeft) {
+                    table.contentX = child.x;
+                    needHRecenter = false;
+                    return;
+                } else if (alignment & Qt.AlignRight) {
+                    table.contentX = child.x - table.width + child.width + rightMargin;
+                    needHRecenter = false;
+                    return;
+                }
+            });
+        }
+
+        if (!alignment || alignment & (Qt.AlignCenter | Qt.AlignVCenter | Qt.AlignTop | Qt.AlignBottom)) {
+            needVRecenter = true;
+            // проходим по строкам
+            Array.prototype.forEach.call(vHeaderView.visibleChildren[0].visibleChildren, function(child) {
+                if (child.objectName === "internalMA" || child._index !== row) {
+                    return;
+                }
+
+                let childOnViewPos = child.y - table.contentY + table.originY;
+
+                if (!alignment) {
+                    if (table.contentY > child.y)
+                        table.contentY = child.y;
+                    else if ((table.contentY + table.height - bottomMargin) < (child.y + child.height))
+                        table.contentY = child.y - table.height + child.height + bottomMargin
+                    needVRecenter = false;
+                } else if (alignment & Qt.AlignCenter || alignment & Qt.AlignVCenter) {
+                    table.contentY += childOnViewPos - (table.height - child.height) / 2;
+                    needVRecenter = false;
+                    return;
+                } else if (alignment & Qt.AlignTop) {
+                    table.contentY = child.y;
+                    needVRecenter = false;
+                    return;
+                } else if (alignment & Qt.AlignBottom) {
+                    table.contentY = child.y - table.height + child.height + bottomMargin;
+                    needVRecenter = false;
+                    return;
+                }
+            });
+        }
+
+        if (needHRecenter) {
+            let hPos = column / (table.model.totalColumnCount() - 1);
+            table.contentX = table.originX + hPos * table.contentWidth - table.width / 2;
+        }
+        if (needVRecenter) {
+            let vPos = row / (table.model.totalRowCount() - 1)
+            table.contentY = table.originY + vPos * table.contentHeight - table.height / 2;
+        }
+        if (needVRecenter || needHRecenter)
+            setTimeout(positionViewAtCell, 50, row, column, alignment);
+
+        table.returnToBounds();
+    }
+
+    function setTimeout(func, interval, ...params) {
+        return setTimeoutComponent.createObject(table, {func, interval, params})
     }
 
     anchors.leftMargin: leftPadding
@@ -606,7 +680,7 @@ TableView {
                   ? table.ScrollBar.horizontal.height : 0
 
     reuseItems: true
-
+    rebound: Transition {}
     columnWidthProvider: (column) => {
         let _column = column + (table._splitOrientation === Qt.Horizontal
                                ? table._subModelIndex * table.model.subtableSizeMax : 0)
@@ -896,8 +970,9 @@ TableView {
             }
 
             if (table.selection.startColumn >= table.model.totalColumnCount()) {
-                table.selection.activeColumn = table.selection.startColumn = 0;
+                table.selection.activeColumn = table.selection.startColumn = table.model.totalColumnCount()-1;
             }
+            positionViewAtCell(table.selection.startRow, table.selection.startColumn);
         }
         if (event.key == Qt.Key_Left) {
             if (event.modifiers & Qt.ShiftModifier) {
@@ -912,7 +987,8 @@ TableView {
             }
 
             if (table.selection.startColumn < 0)
-                table.selection.activeColumn = table.selection.startColumn = table.model.totalColumnCount() - 1;
+                table.selection.activeColumn = table.selection.startColumn = 0;
+            positionViewAtCell(table.selection.startRow, table.selection.startColumn);
         }
         if (event.key == Qt.Key_Down) {
             if (event.modifiers & Qt.ShiftModifier) {
@@ -927,7 +1003,8 @@ TableView {
             }
 
             if (table.selection.startRow >= table.model.totalRowCount())
-                table.selection.activeRow = table.selection.startRow = 0;
+                table.selection.activeRow = table.selection.startRow = table.model.totalRowCount() - 1;
+            positionViewAtCell(table.selection.startRow, table.selection.startColumn);
         }
         if (event.key == Qt.Key_Up) {
             if (event.modifiers & Qt.ShiftModifier) {
@@ -941,7 +1018,8 @@ TableView {
                 table.selection.activeRow = table.selection.startRow;
             }
             if (table.selection.startRow < 0)
-                table.selection.activeRow = table.selection.startRow = table.rows - 1;
+                table.selection.activeRow = table.selection.startRow = 0;
+            positionViewAtCell(table.selection.startRow, table.selection.startColumn);
         }
 
         if (event.key == Qt.Key_Enter || event.key == Qt.Key_Return) {
@@ -967,6 +1045,7 @@ TableView {
                         table.selection.startColumn = table.selection.activeColumn = 0;
                 }
             }
+            positionViewAtCell(table.selection.startRow, table.selection.startColumn);
         }
         if (event.key == Qt.Key_Tab) {
             table.selection.activeColumn++;
@@ -991,7 +1070,7 @@ TableView {
                         table.selection.activeRow = table.selection.startRow = 0;
                 }
             }
-
+            positionViewAtCell(table.selection.startRow, table.selection.startColumn);
         }
         if (event.key == Qt.Key_Backtab) {
             table.selection.activeColumn--;
@@ -1017,9 +1096,27 @@ TableView {
                         table.selection.activeRow = table.selection.startRow = table.model.totalRowCount() - 1;
                 }
             }
-
+            positionViewAtCell(table.selection.startRow, table.selection.startColumn);
         }
         event.accepted = true;
+    }
+
+    Component {
+        id: setTimeoutComponent
+
+        Timer {
+            id: delayTimer
+
+            property var func
+            property var params
+
+            running: true
+            repeat: false
+            onTriggered: {
+                func(...params)
+                destroy()
+            }
+        }
     }
 
     Component { id: fakeParentComponent; Item {} }
