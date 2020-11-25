@@ -10,6 +10,7 @@ include(../IT_QMLRepository/IT_QMLRepository.pri)
 #include(../VariantMapModel/VariantMapModel.pri)
 #include(../SomeBigTableModel/SomeBigTableModel.pri)
 include(../SubtableModel/SubtableModel.pri)
+include(../UNP128M2/unp128m2.pri)
 
 SOURCES += \
         appengine.cpp \
@@ -27,6 +28,7 @@ HEADERS += \
 RESOURCES += qml.qrc \
     icons.qrc
 
+DESTDIR = ../Bin
 
 # Additional import path used to resolve QML modules in Qt Creator's code model
 QML_IMPORT_PATH +=$PWD/qml
