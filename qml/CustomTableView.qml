@@ -972,7 +972,6 @@ TableView {
             }
         }
     }
-
     Keys.onPressed: {
         if (table.selection.startColumn < 0 || table.selection.startRow < 0)
             return;
@@ -1030,6 +1029,10 @@ TableView {
                 if (table.selection.activeRow < Math.min(table.selection.startRow,
                                                             table.selection.startRow + table.selection.rowsCount))
                     table.selection.activeRow++;
+
+                if ((table.selection.startRow + table.selection.rowsCount) >= table.model.totalRowCount()) {
+                     table.selection.rowsCount = table.model.totalRowCount() - table.selection.startRow - 1;
+                }
             } else {
                 table.selection.rowsCount = table.selection.columnsCount = 0;
                 table.selection.activeRow++;
@@ -1049,6 +1052,10 @@ TableView {
                 if (table.selection.activeRow > Math.max(table.selection.startRow,
                                                             table.selection.startRow + table.selection.rowsCount))
                     table.selection.activeRow--;
+
+                if ((table.selection.startRow + table.selection.rowsCount) < 0) {
+                     table.selection.rowsCount = 0 - table.selection.startRow;
+                }
             } else {
                 table.selection.rowsCount = table.selection.columnsCount = 0;
                 table.selection.activeRow--;
