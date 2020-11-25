@@ -169,10 +169,9 @@ TableView {
     property var _setContentX: (x) => { contentX = x; }
     property var _setContentY: (y) => { contentY = y; }
 
-    property int _cursorShape: table.selection.mouseSelection ? Qt.SizeAllCursor :
-                                              _hDragActive ? Qt.SizeHorCursor :
-                                              _vDragActive ? Qt.SizeVerCursor
-                                                           : Qt.ArrowCursor
+    property int _cursorShape:  _hDragActive ? Qt.SizeHorCursor
+                                             : _vDragActive ? Qt.SizeVerCursor
+                                                            : Qt.ArrowCursor
 
     property QtObject selection: QtObject {
         property int startRow: -1
