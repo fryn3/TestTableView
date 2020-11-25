@@ -1070,7 +1070,7 @@ TableView {
 
         if (event.key == Qt.Key_Enter || event.key == Qt.Key_Return) {
             table.selection.activeRow++;
-            if (table.selection.rowsCount !== 0) {
+            if (table.selection.columnsCount !== 0 || table.selection.rowsCount !== 0) {
                 if (table.selection.activeRow >
                         Math.max(table.selection.startRow , table.selection.startRow + table.selection.rowsCount)) {
                     table.selection.activeRow = Math.min(table.selection.startRow,
@@ -1095,7 +1095,7 @@ TableView {
         }
         if (event.key == Qt.Key_Tab) {
             table.selection.activeColumn++;
-            if (table.selection.columnsCount !== 0) {
+            if (table.selection.columnsCount !== 0 || table.selection.rowsCount !== 0) {
                 if (table.selection.activeColumn >
                         Math.max(table.selection.startColumn, table.selection.startColumn + table.selection.columnsCount)) {
                     table.selection.activeColumn = Math.min(table.selection.startColumn,
@@ -1121,7 +1121,7 @@ TableView {
         if (event.key == Qt.Key_Backtab) {
             table.selection.activeColumn--;
 
-            if (table.selection.columnsCount !== 0) {
+            if (table.selection.columnsCount !== 0 || table.selection.rowsCount !== 0) {
                 if (table.selection.activeColumn < Math.min(table.selection.startColumn,
                                                             table.selection.startColumn + table.selection.columnsCount)) {
                     table.selection.activeColumn = Math.max(table.selection.startColumn,

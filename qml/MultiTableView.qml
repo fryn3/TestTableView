@@ -396,7 +396,7 @@ Item {
 
         if (event.key == Qt.Key_Enter || event.key == Qt.Key_Return) {
             table.selection.activeRow++;
-            if (table.selection.rowsCount !== 0) {
+            if (table.selection.columnsCount !== 0 || table.selection.rowsCount !== 0) {
                 if (table.selection.activeRow >
                         Math.max(table.selection.startRow , table.selection.startRow + table.selection.rowsCount)) {
                     table.selection.activeRow = Math.min(table.selection.startRow,
@@ -421,7 +421,7 @@ Item {
         }
         if (event.key == Qt.Key_Tab) {
             table.selection.activeColumn++;
-            if (table.selection.columnsCount !== 0) {
+            if (table.selection.columnsCount !== 0 || table.selection.rowsCount !== 0) {
                 if (table.selection.activeColumn >
                         Math.max(table.selection.startColumn, table.selection.startColumn + table.selection.columnsCount)) {
                     table.selection.activeColumn = Math.min(table.selection.startColumn,
@@ -447,7 +447,7 @@ Item {
         if (event.key == Qt.Key_Backtab) {
             table.selection.activeColumn--;
 
-            if (table.selection.columnsCount !== 0) {
+            if (table.selection.columnsCount !== 0 || table.selection.rowsCount !== 0) {
                 if (table.selection.activeColumn < Math.min(table.selection.startColumn,
                                                             table.selection.startColumn + table.selection.columnsCount)) {
                     table.selection.activeColumn = Math.max(table.selection.startColumn,
@@ -649,18 +649,25 @@ Item {
     }
 
     MouseArea {
-        anchors.fill: parent
+        anchors {
+            fill: parent
+            leftMargin: table.leftPadding
+            rightMargin: table.rightPadding
+        }
+
         acceptedButtons: Qt.NoButton
         hoverEnabled: false
         cursorShape: table._cursorShape
-        z: 10000
+        preventStealing: true
+        propagateComposedEvents: true
+        z: 2000
         onWheel: {
             table.cancelFlick();
             if (wheel.modifiers & Qt.ShiftModifier) {
-                table.flick(wheel.angleDelta.y * 20, 0);
+                table.flick(wheel.angleDelta.y * 7, 0);
                 return;
             }
-            table.flick(0, wheel.angleDelta.y * 20);
+            table.flick(0, wheel.angleDelta.y * 7);
         }
     }
 }
