@@ -237,7 +237,7 @@ TableView {
                         return;
                     table.selection.activeRow = table.selection.startRow = 0;
                     table.selection.activeColumn = table.selection.startColumn = hDelegate._index;
-                    table.selection.rowsCount = table.model.totalRowCount();
+                    table.selection.rowsCount = table.model.totalRowCount() - 1;
                     table.selection.columnsCount = 0;
                     table.selection._refPoint = Qt.point(0, 0);
                     table.selection._refCell = Qt.point(table.selection.startColumn, table.selection.startRow);
@@ -435,7 +435,7 @@ TableView {
                     table.selection.activeColumn = table.selection.startColumn = 0;
                     table.selection.activeRow = table.selection.startRow = vDelegate._index;
                     table.selection.rowsCount = 0;
-                    table.selection.columnsCount = table.model.totalRowCount();
+                    table.selection.columnsCount = table.model.totalColumnCount() - 1;
                     table.selection._refPoint = Qt.point(0, 0);
                     table.selection._refCell = Qt.point(table.selection.startColumn, table.selection.startRow);
                 }
@@ -901,6 +901,7 @@ TableView {
                        ? table.ScrollBar.horizontal.height : 0
         minimumSize: 0.05
         z: 1002
+        visible: height < table.contentHeight
         background: Rectangle {
             implicitHeight: 7
             implicitWidth: 7
@@ -935,10 +936,12 @@ TableView {
             }
         }
     }
+
     ScrollBar.horizontal: ScrollBar {
         rightPadding: table.ScrollBar.vertical && table.ScrollBar.vertical.visible
                       ? table.ScrollBar.vertical.width : 0
         minimumSize: 0.05
+        visible: width < table.contentWidth
         background: Rectangle {
             implicitHeight: 7
             implicitWidth: 7
@@ -972,6 +975,7 @@ TableView {
             }
         }
     }
+
     Keys.onPressed: {
         if (table.selection.startColumn < 0 || table.selection.startRow < 0)
             return;
