@@ -651,6 +651,8 @@ Item {
     MouseArea {
         anchors {
             fill: parent
+            topMargin: table.topPadding
+            bottomMargin: table.bottomPadding
             leftMargin: table.leftPadding
             rightMargin: table.rightPadding
         }

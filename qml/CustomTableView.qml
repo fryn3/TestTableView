@@ -203,7 +203,7 @@ TableView {
         }
         syncView: table
         interactive: false
-        z:1000
+        z:1001
         opacity: hHeaderVisible ? 1 : 0
 
         delegate: Item {
