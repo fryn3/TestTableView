@@ -13,18 +13,42 @@ Item {
     property int cacheBuffer: 50
 
     property QtObject selection: QtObject {
-        readonly property int startRow: table.selection.startRow
-        readonly property int startColumn: table.selection.startColumn
-        readonly property int activeRow: table.selection.activeRow
-        readonly property int activeColumn: table.selection.activeColumn
-        readonly property int rowsCount: table.selection.rowsCount
-        readonly property int columnsCount: table.selection.columnsCount
+        property int startRow: -1
+        property int startColumn: -1
+        property int endRow: -1
+        property int endColumn: -1
+        property int activeRow: -1
+        property int activeColumn: -1
 
-        readonly property bool mouseSelection: table.selection.mouseSelection
+        property bool mouseSelection: false
+        property point _startPos
+        property int hoverRow: -1
+        property int hoverColumn: -1
+
+        property point _refPoint: Qt.point(0,0)
+        property point _refCell: Qt.point(-1, -1)
+
+        function _normalizeBounds() {
+            if (startRow > endRow)
+                startRow = endRow + (endRow = startRow, 0);
+            if (startColumn > endColumn)
+                startColumn = endColumn + (endColumn = startColumn, 0);
+            startColumn = Math.max(0, startColumn);
+            startRow = Math.max(0, startRow);
+            endColumn = Math.min(endColumn, table._totalColumnCount() - 1);
+            endRow = Math.min(endRow, table._totalRowCount() - 1);
+            activeRow = Math.min(Math.max(0, activeRow), table._totalRowCount() - 1);
+            activeColumn = Math.min(Math.max(0, activeColumn), table._totalColumnCount() - 1);
+        }
+
+        function _collapseToActive() {
+            startRow = endRow = activeRow;
+            startColumn = endColumn = activeColumn;
+        }
     }
 
     property Component headerDelegate: Rectangle {
-        color: view ? view.model.subtableHeaderData(view._subModelIndex, modelData.index,
+        color: view ? view.model.subtableHeaderData(view.subModelIndex, modelData.index,
                                                  root.splitOrientation, view.model.getStrRole("background"))
                     : "#535353"
 
@@ -44,7 +68,7 @@ Item {
             anchors.leftMargin: horizontalAlignment === Text.AlignLeft ? 12 : 1
             anchors.rightMargin: horizontalAlignment === Text.AlignRight ? 8 : 1
 
-            text: view ? root.model.subtableHeaderData(view._subModelIndex, modelData.index,
+            text: view ? root.model.subtableHeaderData(view.subModelIndex, modelData.index,
                                              root.splitOrientation, view.model.getStrRole("display"))
                        : ""
 
@@ -63,7 +87,7 @@ Item {
         implicitHeight: table.model.headerData(row, Qt.Vertical, table.model.getStrRole("height")) || 50
 
         border.color: "#2E2D2D"
-        color: view ? view.model.subtableData(view._subModelIndex,
+        color: view ? view.model.subtableData(view.subModelIndex,
                                                 modelData.row, modelData.column,
                                                 view.model.getStrRole("background"))
                     : "#414141"
@@ -76,21 +100,21 @@ Item {
             visible: isEditMode
             textFormat: TextEdit.AutoText
             cursorVisible: !readOnly && activeFocus
-            readOnly: !view || view.model.subtableData(view._subModelIndex,
+            readOnly: !view || view.model.subtableData(view.subModelIndex,
                                                   modelData.row, modelData.column,
                                                   view.model.getStrRole("readOnly"))
-            text: view ? view.model.subtableData(view._subModelIndex,
+            text: view ? view.model.subtableData(view.subModelIndex,
                                        modelData.row, modelData.column,
                                        view.model.getStrRole("display"))
                        : ""
             wrapMode: Text.Wrap
             selectByMouse: true
             color: "#ffffff"
-            horizontalAlignment:view ? view.model.subtableData(view._subModelIndex,
+            horizontalAlignment:view ? view.model.subtableData(view.subModelIndex,
                                                             modelData.row, modelData.column,
                                                             view.model.getStrRole("alignment")) & 0x0F
                                             : TextEdit.AlignHCenter
-            verticalAlignment: view ? view.model.subtableData(view._subModelIndex,
+            verticalAlignment: view ? view.model.subtableData(view.subModelIndex,
                                                            modelData.row, modelData.column,
                                                            view.model.getStrRole("alignment")) & 0xE0
                                            : TextEdit.AlignVCenter
@@ -99,14 +123,14 @@ Item {
 
             Keys.onEscapePressed: {
                 isEditMode = false;
-                text = view ? view.model.subtableData(view._subModelIndex,
+                text = view ? view.model.subtableData(view.subModelIndex,
                                                       modelData.row, modelData.column,
                                                       view.model.getStrRole("display"))
                                       : "";
             }
             Keys.onPressed: {
                 if (event.key == Qt.Key_Enter || event.key == Qt.Key_Return) {
-                    table.model.subtableSetData(table._subModelIndex, row, column, textView.text, table.model.getStrRole("display"))
+                    table.model.subtableSetData(table.subModelIndex, row, column, textView.text, table.model.getStrRole("display"))
                     isEditMode = false;
                     event.accepted = true;
                 }
@@ -126,7 +150,7 @@ Item {
 
         MouseArea {
             anchors.fill: parent
-            enabled: !view || view.model.subtableData(view._subModelIndex,
+            enabled: !view || view.model.subtableData(view.subModelIndex,
                                                       modelData.row, modelData.column,
                                                       view.model.getStrRole("enabled"))
 
@@ -165,6 +189,8 @@ Item {
     }
 
     function positionViewAtCell(row, column, alignment) {
+        row = Math.min(Math.max(row, 0), model.totalRowCount() - 1);
+        column = Math.min(Math.max(column, 0), model.totalColumnCount() - 1);
         let  subTableIndex = splitOrientation === Qt.Vertical
              ? Math.floor(row / model.subtableSizeMax) : Math.floor(column / model.subtableSizeMax)
         if (subTableIndex === 0) {
@@ -225,7 +251,7 @@ Item {
             let loaded = 0;
             subtables[0] = table;
             for (let i = 0; i < count; ++i) {
-                let subTableObj = subTableComponent.createObject(root, {_subModelIndex: i+1});
+                let subTableObj = subTableComponent.createObject(root, {subModelIndex: i+1});
                 if (subTableObj == null) {
                     console.warn("Error creating subtable");
                     continue;
@@ -304,173 +330,144 @@ Item {
 
         if (event.key == Qt.Key_Right) {
             if (event.modifiers & Qt.ShiftModifier) {
-                table.selection.columnsCount++;
-                if (table.selection.activeColumn < Math.min(table.selection.startColumn,
-                                                            table.selection.startColumn + table.selection.columnsCount))
-                    table.selection.activeColumn++;
-                if (table.selection.startColumn >= table.model.totalColumnCount()) {
-                    table.selection.activeColumn = table.selection.startColumn = table.model.totalColumnCount()-1;
-                }
-                if ((table.selection.startColumn + table.selection.columnsCount) >= table.model.totalColumnCount()) {
-                     table.selection.columnsCount = table.model.totalColumnCount() - table.selection.startColumn - 1;
+                if (table.selection.activeColumn === table.selection.endColumn ) {
+                    table.selection.startColumn++;
+                } else {
+                    table.selection.endColumn++;
                 }
             } else {
-                table.selection.rowsCount = table.selection.columnsCount = 0;
                 table.selection.activeColumn++;
-                table.selection.startColumn = table.selection.activeColumn;
-                table.selection.startRow = table.selection.activeRow;
+                table.selection._collapseToActive();
             }
-
-            if (table.selection.startColumn >= table.model.totalColumnCount()) {
-                table.selection.activeColumn = table.selection.startColumn = table.model.totalColumnCount()-1;
-            }
-
-            positionViewAtCell(table.selection.startRow + table.selection.rowsCount,
-                               table.selection.startColumn + table.selection.columnsCount)
+            positionViewAtCell(table.selection.activeRow, table.selection.endColumn);
         }
-        if (event.key == Qt.Key_Left) {
+       if (event.key == Qt.Key_Left) {
             if (event.modifiers & Qt.ShiftModifier) {
-                table.selection.columnsCount--;
-                if (table.selection.activeColumn > Math.max(table.selection.startColumn,
-                                                            table.selection.startColumn + table.selection.columnsCount))
-                    table.selection.activeColumn--;
-                if ((table.selection.startColumn + table.selection.columnsCount) < 0) {
-                     table.selection.columnsCount = 0 - table.selection.startColumn;
+                if (table.selection.activeColumn === table.selection.startColumn) {
+                    table.selection.endColumn--;
+                } else {
+                    table.selection.startColumn--;
                 }
             } else {
-                table.selection.rowsCount = table.selection.columnsCount = 0;
                 table.selection.activeColumn--;
-                table.selection.startColumn = table.selection.activeColumn;
-                table.selection.startRow = table.selection.activeRow;
+                table.selection._collapseToActive();
             }
-
-            if (table.selection.startColumn < 0)
-                table.selection.activeColumn = table.selection.startColumn = 0;
-            positionViewAtCell(table.selection.startRow + table.selection.rowsCount,
-                               table.selection.startColumn + table.selection.columnsCount)
+            positionViewAtCell(table.selection.activeRow, table.selection.startColumn);
         }
-        if (event.key == Qt.Key_Down) {
-            if (event.modifiers & Qt.ShiftModifier) {
-                table.selection.rowsCount++;
-                if (table.selection.activeRow < Math.min(table.selection.startRow,
-                                                            table.selection.startRow + table.selection.rowsCount))
-                    table.selection.activeRow++;
-
-                if ((table.selection.startRow + table.selection.rowsCount) >= table.model.totalRowCount()) {
-                     table.selection.rowsCount = table.model.totalRowCount() - table.selection.startRow - 1;
-                }
-            } else {
-                table.selection.rowsCount = table.selection.columnsCount = 0;
-                table.selection.activeRow++;
-                table.selection.startColumn = table.selection.activeColumn;
-                table.selection.startRow = table.selection.activeRow;
-            }
-
-            if (table.selection.startRow >= table.model.totalRowCount())
-                table.selection.activeRow = table.selection.startRow = table.model.totalRowCount() - 1;  ///TODO REPLACE
-
-            positionViewAtCell(table.selection.startRow + table.selection.rowsCount,
-                               table.selection.startColumn + table.selection.columnsCount)
+         if (event.key == Qt.Key_Down) {
+             if (event.modifiers & Qt.ShiftModifier) {
+                 if (table.selection.activeRow === table.selection.endRow) {
+                     table.selection.startRow++;
+                 } else {
+                     table.selection.endRow++;
+                 }
+             } else {
+                 table.selection.activeRow++;
+                 table.selection._collapseToActive();
+             }
+             positionViewAtCell(table.selection.endRow, table.selection.activeColumn);
         }
         if (event.key == Qt.Key_Up) {
             if (event.modifiers & Qt.ShiftModifier) {
-                table.selection.rowsCount--;
-                if (table.selection.activeRow > Math.max(table.selection.startRow,
-                                                            table.selection.startRow + table.selection.rowsCount))
-                    table.selection.activeRow--;
-
-                if ((table.selection.startRow + table.selection.rowsCount) < 0) {
-                     table.selection.rowsCount = 0 - table.selection.startRow;
+                if (table.selection.activeRow === table.selection.startRow) {
+                    table.selection.endRow--;
+                } else {
+                    table.selection.startRow--;
                 }
             } else {
-                table.selection.rowsCount = table.selection.columnsCount = 0;
                 table.selection.activeRow--;
-                table.selection.startColumn = table.selection.activeColumn;
-                table.selection.startRow = table.selection.activeRow;
+                table.selection._collapseToActive();
             }
-            if (table.selection.startRow < 0)
-                table.selection.activeRow = table.selection.startRow = 0;  ///TODO REPLACE
-            positionViewAtCell(table.selection.startRow + table.selection.rowsCount,
-                               table.selection.startColumn + table.selection.columnsCount)
+            positionViewAtCell(table.selection.startRow, table.selection.activeColumn);
         }
 
         if (event.key == Qt.Key_Enter || event.key == Qt.Key_Return) {
-            table.selection.activeRow++;
-            if (table.selection.columnsCount !== 0 || table.selection.rowsCount !== 0) {
-                if (table.selection.activeRow >
-                        Math.max(table.selection.startRow , table.selection.startRow + table.selection.rowsCount)) {
-                    table.selection.activeRow = Math.min(table.selection.startRow,
-                                                         table.selection.startRow + table.selection.rowsCount);
-                    table.selection.activeColumn++;
-                    if (table.selection.activeColumn >
-                            Math.max(table.selection.startColumn, table.selection.startColumn + table.selection.columnsCount))
-                        table.selection.activeColumn = Math.min(table.selection.startColumn,
-                                                                table.selection.startColumn + table.selection.columnsCount);
+
+            if (event.modifiers & Qt.ShiftModifier) {
+                table.selection.activeRow--;
+                if (table.selection.startColumn !== table.selection.endColumn ||
+                        table.selection.startRow !== table.selection.endRow ) {
+                    if (table.selection.activeRow < Math.min(table.selection.startRow , table.selection.endRow)) {
+                        table.selection.activeRow = Math.max(table.selection.startRow, table.selection.endRow);
+                        table.selection.activeColumn--;
+                        if (table.selection.activeColumn < Math.min(table.selection.startColumn, table.selection.endColumn))
+                            table.selection.activeColumn = Math.max(table.selection.startColumn, table.selection.endColumn);
+                    }
+                } else {
+                    if (table.selection.activeRow < 0) {
+                        table.selection.activeRow = table._totalRowCount() - 1;
+                        table.selection.activeColumn--;
+                        if (table.selection.activeColumn < 0)
+                            table.selection.activeColumn = table._totalColumnCount() - 1;
+                    }
+                    table.selection._collapseToActive();
                 }
             } else {
-                table.selection.startRow++;
-                if (table.selection.activeRow >= table.model.totalRowCount()) {
-                    table.selection.startRow = table.selection.activeRow = 0;
-                    table.selection.activeColumn++;
-                    table.selection.startColumn++;
-                    if (table.selection.activeColumn >= table.model.totalColumnCount())
-                        table.selection.startColumn = table.selection.activeColumn = 0;
+                table.selection.activeRow++;
+                if (table.selection.startColumn !== table.selection.endColumn ||
+                        table.selection.startRow !== table.selection.endRow ) {
+                    if (table.selection.activeRow > Math.max(table.selection.startRow , table.selection.endRow)) {
+                        table.selection.activeRow = Math.min(table.selection.startRow, table.selection.endRow);
+                        table.selection.activeColumn++;
+                        if (table.selection.activeColumn > Math.max(table.selection.startColumn, table.selection.endColumn))
+                            table.selection.activeColumn = Math.min(table.selection.startColumn, table.selection.endColumn);
+                    }
+                } else {
+                    if (table.selection.activeRow >= table._totalRowCount()) {
+                        table.selection.activeRow = 0;
+                        table.selection.activeColumn++;
+                        if (table.selection.activeColumn >= table._totalColumnCount())
+                            table.selection.activeColumn = 0;
+                    }
+                    table.selection._collapseToActive();
                 }
             }
             positionViewAtCell(table.selection.activeRow, table.selection.activeColumn);
         }
         if (event.key == Qt.Key_Tab) {
             table.selection.activeColumn++;
-            if (table.selection.columnsCount !== 0 || table.selection.rowsCount !== 0) {
-                if (table.selection.activeColumn >
-                        Math.max(table.selection.startColumn, table.selection.startColumn + table.selection.columnsCount)) {
-                    table.selection.activeColumn = Math.min(table.selection.startColumn,
-                                                            table.selection.startColumn + table.selection.columnsCount);
+            if (table.selection.startColumn !== table.selection.endColumn ||
+                    table.selection.startRow !== table.selection.endRow ) {
+                if (table.selection.activeColumn > Math.max(table.selection.startColumn, table.selection.endColumn)) {
+                    table.selection.activeColumn = Math.min(table.selection.startColumn, table.selection.endColumn);
                     table.selection.activeRow++;
-                    if (table.selection.activeRow >
-                            Math.max(table.selection.startRow, table.selection.startRow + table.selection.rowsCount))
-                        table.selection.activeRow = Math.min(table.selection.startRow,
-                                                             table.selection.startRow + table.selection.rowsCount);
+                    if (table.selection.activeRow > Math.max(table.selection.startRow, table.selection.endRow))
+                        table.selection.activeRow = Math.min(table.selection.startRow, table.selection.endRow);
                 }
             } else {
-                table.selection.startColumn++;
-                if (table.selection.activeColumn >= table.model.totalColumnCount()) {
-                    table.selection.activeColumn = table.selection.startColumn = 0;
-                    table.selection.startRow++;
+                if (table.selection.activeColumn >= table._totalColumnCount()) {
+                    table.selection.activeColumn = 0;
                     table.selection.activeRow++;
-                    if (table.selection.activeRow >= table.model.totalRowCount())
-                        table.selection.activeRow = table.selection.startRow = 0;
+                    if (table.selection.activeRow >= table._totalRowCount())
+                        table.selection.activeRow = 0;
                 }
+                table.selection._collapseToActive();
             }
             positionViewAtCell(table.selection.activeRow, table.selection.activeColumn);
         }
         if (event.key == Qt.Key_Backtab) {
             table.selection.activeColumn--;
-
-            if (table.selection.columnsCount !== 0 || table.selection.rowsCount !== 0) {
-                if (table.selection.activeColumn < Math.min(table.selection.startColumn,
-                                                            table.selection.startColumn + table.selection.columnsCount)) {
-                    table.selection.activeColumn = Math.max(table.selection.startColumn,
-                                                            table.selection.startColumn + table.selection.columnsCount);
+            if (table.selection.startColumn !== table.selection.endColumn ||
+                    table.selection.startRow !== table.selection.endRow ) {
+                if (table.selection.activeColumn < Math.min(table.selection.startColumn, table.selection.endColumn)) {
+                    table.selection.activeColumn = Math.max(table.selection.startColumn, table.selection.endColumn);
                     table.selection.activeRow--;
-                    if (table.selection.activeRow < Math.min(table.selection.startRow,
-                                                             table.selection.startRow + table.selection.rowsCount))
-                        table.selection.activeRow = Math.max(table.selection.startRow,
-                                                             table.selection.startRow + table.selection.rowsCount);
+                    if (table.selection.activeRow < Math.min(table.selection.startRow, table.selection.endRow))
+                        table.selection.activeRow = Math.max(table.selection.startRow, table.selection.endRow);
                 }
             } else {
-                table.selection.startColumn--;
                 if (table.selection.activeColumn < 0) {
-                    table.selection.activeColumn = table.selection.startColumn = table.model.totalColumnCount() - 1;
-                    table.selection.startRow--;
+                    table.selection.activeColumn = table._totalColumnCount() - 1;
                     table.selection.activeRow--;
                     if (table.selection.activeRow < 0)
-                        table.selection.activeRow = table.selection.startRow = table.model.totalRowCount() - 1;
+                        table.selection.activeRow = table._totalRowCount() - 1;
                 }
+                table.selection._collapseToActive();
             }
             positionViewAtCell(table.selection.activeRow, table.selection.activeColumn);
         }
-        event.accepted = true;
+       table.selection._normalizeBounds();
+       event.accepted = true;
     }
 
     Component.onCompleted: {
@@ -483,17 +480,36 @@ Item {
     CustomTableView {
         id: table
 
-        _subModelIndex: 0
-        _splitOrientation: root.splitOrientation
+        property int subModelIndex: 0
+        property int splitOrientation: root.splitOrientation
 
         anchors.fill: parent
         headerDelegate: root.headerDelegate
         scrollByWheel: false
 
+        columnWidthProvider: (column) => {
+                                 let _column = _absColumn(column)
+                                 return table._savedWidth[_column]
+                                 ? table._savedWidth[_column]
+                                 : root.model.subtableHeaderData(subModelIndex, column, Qt.Horizontal, root.model.getStrRole("width"))
+                             }
+        rowHeightProvider: (row) => {
+                               let _row = _absRow(row)
+                               return table._savedHeight[_row]
+                               ? table._savedHeight[_row]
+                               : root.model.subtableHeaderData(subModelIndex, row, Qt.Vertical, root.model.getStrRole("height"))
+                           }
+
+        _absRow: (row) => root.model.absoluteRow(row, subModelIndex)
+        _absColumn: (column) => root.model.absoluteColumn(column, subModelIndex)
+        _totalColumnCount: () => root.model.totalColumnCount()
+        _totalRowCount: () => root.model.totalRowCount()
+        _roleToInt: (role) => root.model.getStrRole(role)
+
         bottomMargin: {
             let cHeight = (table.ScrollBar.horizontal && table.ScrollBar.horizontal.visible
                            ? table.ScrollBar.horizontal.height : 0);
-            if (table._splitOrientation == Qt.Horizontal)
+            if (table.splitOrientation == Qt.Horizontal)
                 return cHeight;
 
             return d.tablesSizeSum(1, root.model.subtableCount) + cHeight;
@@ -502,7 +518,7 @@ Item {
             let cWidth = (table.ScrollBar.vertical && table.ScrollBar.vertical.visible
                           ? table.ScrollBar.vertical.width : 0);
 
-            if (table._splitOrientation == Qt.Vertical)
+            if (table.splitOrientation == Qt.Vertical)
                 return cWidth;
 
             return d.tablesSizeSum(1, root.model.subtableCount)
@@ -532,33 +548,33 @@ Item {
             property bool isVisible: {
                 if (root.splitOrientation === Qt.Horizontal) {
                     let contX = table.contentX
-                    return (d.tablesSizeSum(0, _subModelIndex + 1) >= (contX - root.cacheBuffer)) &&
-                           (d.tablesSizeSum(0, _subModelIndex - 1) <= (contX + root.width - table.leftPadding + root.cacheBuffer))
+                    return (d.tablesSizeSum(0, subModelIndex + 1) >= (contX - root.cacheBuffer)) &&
+                           (d.tablesSizeSum(0, subModelIndex - 1) <= (contX + root.width - table.leftPadding + root.cacheBuffer))
                 } else {
                     let contY = table.contentY
-                    return ((d.tablesSizeSum(0, _subModelIndex + 1)) >= (contY - root.cacheBuffer)) &&
-                           ((d.tablesSizeSum(0, _subModelIndex - 1)) <= (contY + root.height - table.topPadding + root.cacheBuffer))
+                    return ((d.tablesSizeSum(0, subModelIndex + 1)) >= (contY - root.cacheBuffer)) &&
+                           ((d.tablesSizeSum(0, subModelIndex - 1)) <= (contY + root.height - table.topPadding + root.cacheBuffer))
                 }
             }
-            property int _subModelIndex: 0
+            property int subModelIndex: 0
             property QtObject selection: null
 
             property real topMargin: {
                 if (root.splitOrientation == Qt.Horizontal)
                     return 0;
-                return d.tablesSizeSum(0, _subModelIndex) + table.topPadding;
+                return d.tablesSizeSum(0, subModelIndex) + table.topPadding;
             }
             property real bottomMargin: {
                 let cHeight = (table.ScrollBar.horizontal && table.ScrollBar.horizontal.visible
                                ? table.ScrollBar.horizontal.height : 0);
                 if (root.splitOrientation == Qt.Horizontal)
                     return cHeight;
-                return d.tablesSizeSum(_subModelIndex + 1, root.model.subtableCount) - cHeight;
+                return d.tablesSizeSum(subModelIndex + 1, root.model.subtableCount) - cHeight;
             }
             property real leftMargin: {
                 if (root.splitOrientation == Qt.Vertical)
                     return 0;
-                return d.tablesSizeSum(0, _subModelIndex) + table.leftPadding;
+                return d.tablesSizeSum(0, subModelIndex) + table.leftPadding;
             }
             property real rightMargin: {
                 let cWidth = (table.ScrollBar.vertical && table.ScrollBar.vertical.visible
@@ -566,7 +582,7 @@ Item {
 
                 if (root.splitOrientation  == Qt.Vertical)
                     return cWidth;
-                return d.tablesSizeSum(_subModelIndex + 1, root.model.subtableCount) - cWidth;
+                return d.tablesSizeSum(subModelIndex + 1, root.model.subtableCount) - cWidth;
             }
 
             anchors {
@@ -581,8 +597,9 @@ Item {
             sourceComponent: CustomTableView {
                 id: sTable
 
-                _subModelIndex: loader._subModelIndex
-                _splitOrientation: root.splitOrientation
+                property int subModelIndex: loader.subModelIndex
+
+                property int splitOrientation: root.splitOrientation
 
                 headerDelegate: root.headerDelegate
 
@@ -595,6 +612,19 @@ Item {
                 contentY: table.contentY + (root.splitOrientation === Qt.Vertical
                                              ? -topMargin : 0)
 
+                columnWidthProvider: (column) => {
+                                         let _column = _absColumn(column)
+                                         return table._savedWidth[_column]
+                                         ? table._savedWidth[_column]
+                                         : root.model.subtableHeaderData(subModelIndex, column, Qt.Horizontal, root.model.getStrRole("width"))
+                                     }
+                rowHeightProvider: (row) => {
+                                       let _row = _absRow(row)
+                                       return table._savedHeight[_row]
+                                       ? table._savedHeight[_row]
+                                       : root.model.subtableHeaderData(subModelIndex, row, Qt.Vertical, root.model.getStrRole("height"))
+                                   }
+
                 _setContentX: (x) => {
                                   table.contentX = x  + (root.splitOrientation === Qt.Horizontal
                                                          ? -leftMargin : 0) ;
@@ -605,6 +635,16 @@ Item {
                                                         ? -topMargin : 0)
                                   table.returnToBounds();
                               }
+
+
+                _absRow: (row) => root.model.absoluteRow(row, subModelIndex)
+                _absColumn: (column) => root.model.absoluteColumn(column, subModelIndex)
+                _totalColumnCount: () => root.model.totalColumnCount()
+                _totalRowCount: () => root.model.totalRowCount()
+                _roleToInt: (role) => root.model.getStrRole(role)
+                _flick: (xVel, yVel) => table.flick(xVel, yVel)
+                _cancelFlick: () => table.cancelFlick()
+
                 onLayoutUpdated: d.updateLayout()
 
                 topMargin: loader.topMargin
@@ -626,11 +666,11 @@ Item {
 
                 Component.onCompleted: {
                     if (root.splitOrientation === Qt.Vertical) {
-                        d.contentTablesV[_subModelIndex] = contentHeight;
+                        d.contentTablesV[subModelIndex] = contentHeight;
                         hHeaderVisible = false;
                     }
                     if (root.splitOrientation === Qt.Horizontal) {
-                        d.contentTablesH[_subModelIndex] = contentWidth;
+                        d.contentTablesH[subModelIndex] = contentWidth;
                         vHeaderVisible = false;
                     }
 
