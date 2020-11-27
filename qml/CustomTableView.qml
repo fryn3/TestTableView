@@ -636,7 +636,7 @@ TableView {
                 return;
         }
 
-//        console.log("###positionViewAtCell", row, column, alignment || 0, deep)
+        console.log("###positionViewAtCell", row, column, alignment || 0, deep)
 
         let needHRecenter = false, needVRecenter = false;
 
@@ -1032,53 +1032,61 @@ TableView {
             if (event.modifiers & Qt.ShiftModifier) {
                 if (table.selection.activeColumn === table.selection.endColumn ) {
                     table.selection.startColumn++;
+                    positionViewAtCell(table.selection.activeRow, table.selection.startColumn);
                 } else {
                     table.selection.endColumn++;
+                    positionViewAtCell(table.selection.activeRow, table.selection.endColumn);
                 }
             } else {
                 table.selection.activeColumn++;
                 table.selection._collapseToActive();
+                positionViewAtCell(table.selection.activeRow, table.selection.endColumn);
             }
-            positionViewAtCell(table.selection.activeRow, table.selection.endColumn);
         }
-       if (event.key == Qt.Key_Left) {
+        if (event.key == Qt.Key_Left) {
             if (event.modifiers & Qt.ShiftModifier) {
                 if (table.selection.activeColumn === table.selection.startColumn) {
                     table.selection.endColumn--;
+                    positionViewAtCell(table.selection.activeRow, table.selection.activeColumn);
                 } else {
                     table.selection.startColumn--;
+                    positionViewAtCell(table.selection.activeRow, table.selection.startColumn);
                 }
             } else {
                 table.selection.activeColumn--;
                 table.selection._collapseToActive();
+                positionViewAtCell(table.selection.activeRow, table.selection.startColumn);
             }
-            positionViewAtCell(table.selection.activeRow, table.selection.startColumn);
         }
-         if (event.key == Qt.Key_Down) {
+        if (event.key == Qt.Key_Down) {
              if (event.modifiers & Qt.ShiftModifier) {
                  if (table.selection.activeRow === table.selection.endRow) {
                      table.selection.startRow++;
+                     positionViewAtCell(table.selection.startRow, table.selection.activeColumn);
                  } else {
                      table.selection.endRow++;
+                     positionViewAtCell(table.selection.endRow, table.selection.activeColumn);
                  }
              } else {
                  table.selection.activeRow++;
                  table.selection._collapseToActive();
+                 positionViewAtCell(table.selection.endRow, table.selection.activeColumn);
              }
-             positionViewAtCell(table.selection.endRow, table.selection.activeColumn);
         }
         if (event.key == Qt.Key_Up) {
             if (event.modifiers & Qt.ShiftModifier) {
                 if (table.selection.activeRow === table.selection.startRow) {
                     table.selection.endRow--;
+                    positionViewAtCell(table.selection.endRow, table.selection.activeColumn);
                 } else {
                     table.selection.startRow--;
+                    positionViewAtCell(table.selection.startRow, table.selection.activeColumn);
                 }
             } else {
                 table.selection.activeRow--;
                 table.selection._collapseToActive();
+                positionViewAtCell(table.selection.startRow, table.selection.activeColumn);
             }
-            positionViewAtCell(table.selection.startRow, table.selection.activeColumn);
         }
 
         if (event.key == Qt.Key_Enter || event.key == Qt.Key_Return) {
