@@ -3,13 +3,6 @@
         <file>qml/CustomTableView.qml</file>
         <file>qml/TestTableMenu.qml</file>
         <file>qml/main.qml</file>
-        <file>qml/TableView/TableView.qml</file>
-        <file>qml/TableView/TableViewColumn.qml</file>
-        <file>qml/TableView/private/BasicTableView.qml</file>
-        <file>qml/TableView/private/TableViewItemDelegateLoader.qml</file>
-        <file>qml/TableView/private/TableViewSelectionModel.qml</file>
-        <file>qml/TableView/style/BasicTableViewStyle.qml</file>
-        <file>qml/TableView/style/TableViewStyle.qml</file>
         <file>qml/MultiTableView.qml</file>
         <file>qml/ColorOverlayButton.qml</file>
         <file>qml/TestColorBar.qml</file>
