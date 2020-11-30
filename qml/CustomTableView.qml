@@ -697,10 +697,11 @@ TableView {
                 }
 
                 let childOnViewPos = child.y - table.contentY + table.originY;
+                console.log("###positionViewAtCell", row, column, alignment || 0, deep, table.contentY, child.y)
                 if (!alignment) {
                     if (table.contentY > child.y)
                         table._setContentY(child.y);
-                    else if ((table.contentY + table.height- bottomPadding) < (child.y + child.height))
+                    else if ((table.contentY + table.height - bottomPadding) < (child.y + child.height))
                         table._setContentY(child.y - table.height + child.height + bottomPadding)
                     needVRecenter = false;
                 } else if (alignment & Qt.AlignCenter || alignment & Qt.AlignVCenter) {
@@ -771,7 +772,8 @@ TableView {
     columnWidthProvider: (column) => {
                              let _column = _absColumn(column)
                              return table._savedWidth[_column]
-                             ? table._savedWidth[_column] : table.model.headerData(_column, Qt.Horizontal, table.model.getStrRole("width"))
+                             ? table._savedWidth[_column]
+                             : table.model.headerData(_column, Qt.Horizontal, table.model.getStrRole("width"))
                          }
     rowHeightProvider: (row) => {
                            let _row = _absRow(row)
@@ -807,6 +809,7 @@ TableView {
         }
 
         sourceComponent: table.cellDeleagate
+        asynchronous: true
 
         MouseArea {
             id: selectionMouseArea

@@ -11,7 +11,6 @@ import QtGraphicalEffects 1.12
 //import IT_QMLRepository 12.34
 import Controls 12.34
 import Theme 12.34
-import "TableView" as Table
 
 //import "./Controls"
 //import SomeBigTableModel 1.1
@@ -244,6 +243,7 @@ Window {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         clip: true
+
         MultiTableView {
 
 //        CustomTableView {
